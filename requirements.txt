@@ -1,0 +1,52 @@
+# ==============================================================================
+# Python Dependencies for FHIR Healthcare Platform & Sample Todo App
+# Compatible with Python 3.10+ (including Python 3.12)
+# ==============================================================================
+
+# --- Web Framework & ASGI Server ---
+fastapi>=0.110.0,<1.0.0
+uvicorn[standard]>=0.28.0,<1.0.0
+
+# --- Data Validation & Configuration ---
+pydantic>=2.6.0,<3.0.0
+pydantic-settings>=2.2.0,<3.0.0
+
+# --- Database & NoSQL ODM (MongoDB / Amazon DocumentDB) ---
+motor>=3.3.0,<4.0.0
+beanie>=1.25.0,<2.0.0
+pymongo>=4.6.0,<5.0.0
+
+# --- Security, Hashing & Authentication ---
+# There is a passlib issue.
+passlib[bcrypt]>=1.7.4
+bcrypt>=4.1.0,<5.0.0
+pyjwt[crypto]>=2.8.0,<3.0.0
+python-multipart>=0.0.9
+
+# --- HTTP Client & Async Networking ---
+httpx>=0.27.0,<1.0.0
+
+# --- Healthcare Standards (HL7 FHIR R4) ---
+# Pydantic v2-based FHIR models 
+# (default R5; R4B available via fhir.resources.R4B)
+fhir.resources>=7.1.0,<8.0.0
+
+# --- Machine Learning & Data Processing ---
+scikit-learn>=1.4.0,<2.0.0
+pandas>=2.2.0,<3.0.0
+numpy>=1.26.0,<2.0.0
+
+# --- AWS SDK (Cloud Storage, KMS, Cognito, HealthLake) ---
+boto3>=1.34.0,<2.0.0
+aioboto3>=12.3.0
+
+# --- Testing & TDD Suite ---
+pytest>=8.0.0,<9.0.0
+pytest-asyncio>=0.23.0,<1.0.0
+pytest-cov>=4.1.0,<5.0.0
+pytest-mock>=3.12.0,<4.0.0
+mongomock-motor>=0.0.29
+
+# --- Code Quality & Typing ---
+ruff>=0.3.0
+mypy>=1.9.0
