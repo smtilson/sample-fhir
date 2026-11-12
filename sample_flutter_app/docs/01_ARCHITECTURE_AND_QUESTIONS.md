@@ -36,6 +36,8 @@ Because our backend is **FastAPI** (which natively relies on **Pydantic** for va
 
 **S:** Is it the case that PynamoDB is necessary for working with AWS or is it possible to use beanie on AWS but just use a different database service?
 
+**Devin:** No, PynamoDB is not necessary on AWS. Beanie communicates using the standard MongoDB wire protocol, which is fully supported on AWS by **Amazon DocumentDB** (AWS's native managed MongoDB-compatible document database) as well as **MongoDB Atlas on AWS**. You can use Beanie with zero code changes between local MongoDB and Amazon DocumentDB on AWS; only the connection string URI changes.
+
 #### [Q-SAMPLE-ODM-01] ODM Selection
 **Devin:** Would you like to proceed with **Beanie** as the primary ODM for this sample app?
 - **Option A: Beanie** (Strongly recommended: natively unifies Pydantic v2 data validation, async Motor performance, and FastAPI schemas).
@@ -43,6 +45,17 @@ Because our backend is **FastAPI** (which natively relies on **Pydantic** for va
 - **Option C: PynamoDB** (If you prefer testing directly against Amazon DynamoDB instead of MongoDB/DocumentDB).
 
 **S:** What is the upside of option C? I don't understand what DynamoDB offers that MongoDB/DocumentDB doesn't.
+
+**Devin:** Here is the direct breakdown of what DynamoDB offers versus MongoDB / Amazon DocumentDB:
+- **Upsides of DynamoDB (Option C):**
+  1. *True Serverless Pay-per-Request:* If traffic drops to zero, your database bill is $0.00/month. By contrast, Amazon DocumentDB runs on dedicated compute instances with a minimum baseline cost of ~$50–$80/month unless stopped.
+  2. *Stateless Connection Scaling:* DynamoDB communicates via HTTP requests without persistent TCP connection pools, making it seamless with serverless AWS Lambda invocations.
+  3. *Predictable Latency:* Returns in single-digit milliseconds regardless of dataset size for primary key lookups.
+- **Downsides of DynamoDB for this project:**
+  1. *Rigid Query Patterns:* DynamoDB requires strict Single-Table Design with predefined Partition and Sort keys. You cannot flexibly query or aggregate deeply nested JSON fields without creating Global Secondary Indexes (GSIs) or syncing tables to OpenSearch.
+  2. *400 KB Item Size Limit:* Deeply nested medical records can hit this limit.
+  3. *PynamoDB vs. Beanie:* PynamoDB is mostly synchronous and lacks native Pydantic v2 validation.
+- **Conclusion & Decision:** We will proceed with **Option A (Beanie)** over MongoDB locally and Amazon DocumentDB on AWS.
 
 ---
 
@@ -99,7 +112,7 @@ An ML platform (e.g., AWS SageMaker, automated training pipelines, or a local Ju
 - **Option B: Completion Duration / Due Date Estimator:** A regression model that predicts how long a task will take based on historical completion logs.
 - **Option C: ML-ready Data Export only:** Focus on clean, high-throughput bulk export endpoints and API keys, deferring actual model inference.
 
-**S:** 
+**S:** I do not want to build any ML capability into the app. I like the option of just doing clean ML data exports. Maybe those endpoints should be separate and eventually require authorization of some form.
 
 ---
 
@@ -121,7 +134,7 @@ The sample app requires accounts so each user has their own private tasks and ca
 - **Option A: Self-contained FastAPI JWT** (Recommended for local learning and quick testing).
 - **Option B: AWS Cognito User Pool** (Direct AWS cloud integration).
 
-**S:** 
+**S:** For this sample app, I want self contained. I do want you to make comments along the way referencing how this would work with Cognito. Sign those comments "**Devin re-Cognito:** [comment]".
 
 ---
 
@@ -144,7 +157,7 @@ Since you are completely new to Flutter, creating an app that follows modern Flu
 - **Option B: Mobile (Android/iOS)** (Using Android Studio Emulator or physical device).
 - **Option C: Both.**
 
-**S:** 
+**S:** I want to run and test on both Desktop and Mobile. Let's prioritize browser, then mobile, then desktop. Do this incrementally and reflect this in the ticket structure. I also do not want the swipe left and right gestures for task management.
 
 ---
 
@@ -159,14 +172,15 @@ Since you are completely new to Flutter, creating an app that follows modern Flu
 #### [Q-SAMPLE-AWS-01] Local vs. Cloud Deployment Target
 **Devin:** Do you want the sample app to initially run 100% locally via `docker-compose` (FastAPI + MongoDB/DocumentDB container + Flutter), with AWS deployment scripts prepared for when you are ready to push to AWS?
 
-**S:** 
+**S:** I want to be able to run and test the sample app locally via `docker-compose` and then deploy to be able to deploy to AWS if/when necessary.
 
 ---
 
-## Question Summary Index
-- `[Q-SAMPLE-ODM-01]`: ODM Selection (Beanie vs. Raw Motor vs. PynamoDB)
-- `[Q-SAMPLE-FHIR-01]`: Data Model Alignment (Full FHIR Task vs. Conceptual Mapping)
-- `[Q-SAMPLE-ML-01]`: ML Capability Scope (Prioritization NLP vs. Duration Estimator vs. Bulk Export)
-- `[Q-SAMPLE-AUTH-01]`: Auth Mechanism (Self-contained FastAPI JWT vs. AWS Cognito)
-- `[Q-SAMPLE-UI-01]`: Flutter Target Form Factor (Desktop/Web vs. Mobile)
-- `[Q-SAMPLE-AWS-01]`: Deployment Strategy (Local Docker-Compose first vs. Direct AWS)
+## Question Summary & Final Decision Index
+
+- `[Q-SAMPLE-ODM-01]`: **Resolved: Option A (Beanie)**. Uses Beanie + Motor over MongoDB locally and Amazon DocumentDB on AWS.
+- `[Q-SAMPLE-FHIR-01]`: **Resolved: Hybrid Incremental Approach**. Start with a lightweight, testable Todo schema for fast CRUD & frontend progress, then incrementally add FHIR `Task` concepts and serialization across later tickets.
+- `[Q-SAMPLE-ML-01]`: **Resolved: Clean ML Bulk Export Endpoints**. No ML models/NLP inside the app; build dedicated, authorized bulk data export endpoints (`/api/v1/ml/export/tasks`) returning structured NDJSON.
+- `[Q-SAMPLE-AUTH-01]`: **Resolved: Self-contained FastAPI JWT**. Use self-contained JWT for local development and testing, accompanied by `**Devin re-Cognito:**` annotations in docs and tickets explaining the Cognito equivalent.
+- `[Q-SAMPLE-UI-01]`: **Resolved: Multi-Platform Phased Rollout (No Swipes)**. Phased priority: 1. Browser (Flutter Web) -> 2. Mobile (Android/iOS) -> 3. Desktop (Windows). No swipe gestures; use explicit checkboxes, action buttons, and confirmation dialogs.
+- `[Q-SAMPLE-AWS-01]`: **Resolved: Local Docker-Compose First**. Local development and testing via `docker-compose`, with AWS deployment scripts (AWS App Runner / DocumentDB / S3) ready for cloud deployment when needed.

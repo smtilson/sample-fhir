@@ -2,7 +2,13 @@
 
 This document defines the actionable engineering tickets for the **Sample Todo & Account Application**.
 
-Tickets are organized into sequential **Epochs**. Any ticket that depends on an architectural choice references the corresponding question from `sample_flutter_app/docs/01_ARCHITECTURE_AND_QUESTIONS.md`.
+Tickets are organized into sequential **Epochs** reflecting the finalized architecture decisions:
+- **ODM:** Beanie + Motor over MongoDB (local) / Amazon DocumentDB (AWS).
+- **FHIR Alignment:** Hybrid incremental progression (simple Todo CRUD first, followed by FHIR `Task` concepts).
+- **Machine Learning:** Dedicated, secure bulk data export endpoints (no embedded ML models).
+- **Authentication:** Self-contained FastAPI JWT with explicit `**Devin re-Cognito:**` parity notes.
+- **Flutter UI/UX:** Phased platform rollout (Browser -> Mobile -> Desktop) with explicit controls (no swipe gestures).
+- **Deployment:** Local `docker-compose` first with AWS deployment blueprints.
 
 ---
 
@@ -10,13 +16,13 @@ Tickets are organized into sequential **Epochs**. Any ticket that depends on an 
 
 | Epoch | Title | Deliverables |
 | :--- | :--- | :--- |
-| **Epoch 0** | Tooling, Scaffolding & TDD Baseline | FastAPI + Beanie setup, Flutter project skeleton, pytest & flutter_test |
-| **Epoch 1** | Accounts & Authentication Flow | User registration, password hashing, JWT tokens, Flutter login/register UI |
-| **Epoch 2** | Todo Data Model (FHIR-aligned) & Persistence | Beanie/ODM models, FHIR Task field mapping, CRUD service layer |
-| **Epoch 3** | REST API & ML-Accessible Endpoints | Full Task CRUD endpoints, Bulk ML dataset export, task analytics |
-| **Epoch 4** | Flutter UI/UX & State Management | Task list screen, dismissible swipe cards, filter chips, bottom sheet creation |
-| **Epoch 5** | ML Feature Integration | NLP task priority inference endpoint, Flutter smart priority suggestion |
-| **Epoch 6** | E2E Testing & Deployment Packaging | End-to-end integration tests, Dockerization, AWS App Runner / S3 configs |
+| **Epoch 0** | Tooling, Scaffolding & TDD Baseline | FastAPI + Beanie setup, Flutter skeleton, Docker-Compose, pytest & flutter_test |
+| **Epoch 1** | Accounts & Authentication Flow | User registration, password hashing, JWT tokens, Flutter login/register UI, Cognito parity notes |
+| **Epoch 2** | Core Todo Domain & Persistence (Stage 1) | Simple Todo schema, Beanie models, CRUD service layer, unit & API tests |
+| **Epoch 3** | Incremental FHIR Task Evolution (Stage 2) | FHIR status state machine, `executionPeriod`, HL7 FHIR R4 Task JSON export serializer |
+| **Epoch 4** | Flutter UI/UX — Phase 1: Browser (Web) | Material 3 dashboard, explicit checkboxes & confirm dialogs (no swipes), filter chips |
+| **Epoch 5** | Machine Learning Bulk Data Export Layer | Authorized NDJSON/JSON export endpoints, query filters, task analytics |
+| **Epoch 6** | Multi-Platform Expansion & AWS Deployment | Mobile (Phase 2) & Desktop (Phase 3) verification, Docker & AWS App Runner / DocumentDB configs |
 
 ---
 
@@ -24,9 +30,9 @@ Tickets are organized into sequential **Epochs**. Any ticket that depends on an 
 
 ### [SMP-EP0-TK01] FastAPI Backend Scaffolding & Pytest Setup
 - **Summary:** Initialize the backend directory with `pyproject.toml`, FastAPI application factory, and configure `pytest` with `pytest-asyncio` and `pytest-cov`.
-- **Referenced Questions:** `[Q-SAMPLE-ODM-01]` (ODM Selection).
+- **Referenced Questions:** `[Q-SAMPLE-ODM-01]` (Resolved: Beanie).
 - **Tasks & Acceptance Criteria:**
-  1. Define dependencies: `fastapi`, `uvicorn`, `beanie` (or selected ODM), `motor`, `pydantic-settings`, `pytest`, `pytest-asyncio`, `pytest-cov`, `httpx`, `ruff`, `mypy`.
+  1. Define dependencies: `fastapi`, `uvicorn`, `beanie`, `motor`, `pydantic-settings`, `pytest`, `pytest-asyncio`, `pytest-cov`, `httpx`, `ruff`, `mypy`.
   2. Implement `tests/conftest.py` with an async test client fixture.
   3. Create health check endpoint `GET /api/v1/health` returning `{"status": "ok"}`.
 - **TDD Test Spec:** `pytest tests/api/test_health.py` asserts 200 OK and valid JSON response.
@@ -35,7 +41,7 @@ Tickets are organized into sequential **Epochs**. Any ticket that depends on an 
 
 ### [SMP-EP0-TK02] Flutter Project Scaffolding & Testing Harness
 - **Summary:** Initialize the Flutter client application and verify that `flutter test` executes cleanly.
-- **Referenced Questions:** `[Q-SAMPLE-UI-01]` (Target Form Factor).
+- **Referenced Questions:** `[Q-SAMPLE-UI-01]` (Resolved: Browser-first).
 - **Tasks & Acceptance Criteria:**
   1. Run `flutter create frontend --org com.sample.todo`.
   2. Add dependencies to `pubspec.yaml`: `flutter_riverpod` (or chosen state manager), `http` or `dio`, `flutter_secure_storage`, `mocktail` (dev).
@@ -46,28 +52,29 @@ Tickets are organized into sequential **Epochs**. Any ticket that depends on an 
 
 ### [SMP-EP0-TK03] Local Docker-Compose Environment
 - **Summary:** Create a `docker-compose.yml` to run MongoDB locally alongside the FastAPI backend for development.
-- **Referenced Questions:** `[Q-SAMPLE-AWS-01]` (Local vs. Cloud Deployment).
+- **Referenced Questions:** `[Q-SAMPLE-AWS-01]` (Resolved: Local Docker-compose first).
 - **Tasks & Acceptance Criteria:**
   1. Create `docker-compose.yml` launching `mongo:7` on port 27017 and a volume for data persistence.
   2. Ensure the FastAPI backend connects to the local MongoDB instance via environment variable `DATABASE_URL`.
-- **TDD Test Spec:** Backend successfully connects and initializes ODM collections on startup.
+- **TDD Test Spec:** Backend successfully connects and initializes Beanie collections on startup.
 
 ---
 
 ## Epoch 1: Accounts & Authentication Flow
 
 ### [SMP-EP1-TK01] User Document Model & Credential Security
-- **Summary:** Implement the `User` ODM document model with encrypted password hashing using bcrypt.
-- **Referenced Questions:** `[Q-SAMPLE-AUTH-01]` (Auth Architecture).
+- **Summary:** Implement the `User` Beanie document model with encrypted password hashing using bcrypt.
+- **Referenced Questions:** `[Q-SAMPLE-AUTH-01]` (Resolved: Self-contained JWT).
 - **Tasks & Acceptance Criteria:**
   1. Write failing unit test verifying password cannot be saved in plaintext.
   2. Implement `User` model with fields: `id`, `email`, `hashed_password`, `full_name`, `is_active`, `created_at`.
   3. Implement utility functions `hash_password()` and `verify_password()`.
 - **TDD Test Spec:** `test_password_hashing()` verifies bcrypt salt generation and verification matching.
+- **Devin re-Cognito:** In AWS Cognito, you do not manage a `User` database document or password hashes yourself. Cognito User Pools store credentials and handle bcrypt/Argon2 hashing securely behind AWS-managed KMS encryption. The application only stores the Cognito `sub` (User UUID) as a foreign key on tasks.
 
 ---
 
-### [SMP-EP1-TK02] FastAPI Authentication Endpoints
+### [SMP-EP1-TK02] FastAPI Authentication & Token Endpoints
 - **Summary:** Build endpoints for user registration, login (OAuth2 password flow), and current user info.
 - **Referenced Questions:** `[Q-SAMPLE-AUTH-01]`.
 - **Tasks & Acceptance Criteria:**
@@ -77,6 +84,7 @@ Tickets are organized into sequential **Epochs**. Any ticket that depends on an 
      - `GET /api/v1/auth/me` (returns current user profile given Bearer token).
   2. Return 401 Unauthorized for invalid credentials or missing tokens.
 - **TDD Test Spec:** API tests verify registration, successful token retrieval, and token validation.
+- **Devin re-Cognito:** With Cognito, login and registration are performed via the Cognito IDP API (`InitiateAuth`, `SignUp`) or the Cognito Hosted UI. Cognito issues standard OIDC tokens (ID token, Access token, Refresh token). The FastAPI backend doesn't issue tokens; it simply acts as a Resource Server validating incoming Cognito JWT signatures against AWS's public JWKS endpoint (`https://cognito-idp.<region>.amazonaws.com/<userPoolId>/.well-known/jwks.json`).
 
 ---
 
@@ -85,199 +93,220 @@ Tickets are organized into sequential **Epochs**. Any ticket that depends on an 
 - **Referenced Questions:** `[Q-SAMPLE-AUTH-01]`, `[Q-SAMPLE-UI-01]`.
 - **Tasks & Acceptance Criteria:**
   1. Write unit tests mocking HTTP responses for login and register.
-  2. Implement `AuthService` storing access and refresh tokens securely in platform Keychain/KeyStore.
+  2. Implement `AuthService` storing access and refresh tokens securely (Keychain on iOS/macOS, KeyStore on Android, LocalStorage on Web).
   3. Ensure logout clears tokens from secure storage.
 - **TDD Test Spec:** Unit tests verify tokens are retrieved, saved, and deleted from secure storage mock.
+- **Devin re-Cognito:** In Flutter with AWS, you can use the official `amplify_flutter` or `amazon_cognito_identity_dart_2` package. Instead of storing raw tokens manually, the SDK handles token refresh, session caching, and multi-factor authentication (MFA) automatically.
 
 ---
 
-### [SMP-EP1-TK04] Flutter Login & Registration Screens
-- **Summary:** Build the user interface for Login and Registration with form validation and widget tests.
+### [SMP-EP1-TK04] Flutter Login & Registration Screens (Browser-First)
+- **Summary:** Build the user interface for Login and Registration with form validation and widget tests, verified in Flutter Web.
 - **Referenced Questions:** `[Q-SAMPLE-UI-01]`.
 - **Tasks & Acceptance Criteria:**
   1. Write widget tests (`testWidgets`): test email and password inputs, validation error on short password, submit button click.
-  2. Implement responsive Material 3 LoginScreen and RegisterScreen.
+  2. Implement responsive Material 3 LoginScreen and RegisterScreen suitable for browser windows.
   3. Display loading spinner while authenticating and error snackbar on failure.
 - **TDD Test Spec:** Widget tests verify all UI states (validation failure, loading state, successful navigation).
 
 ---
 
-## Epoch 2: Todo Data Model (FHIR-aligned) & Persistence
+## Epoch 2: Core Todo Domain & Persistence (Stage 1)
 
-### [SMP-EP2-TK01] Task Document Schema (FHIR-aligned)
-- **Summary:** Define the Task ODM model mapping to the HL7 FHIR `Task` resource specifications.
-- **Referenced Questions:** `[Q-SAMPLE-ODM-01]`, `[Q-SAMPLE-FHIR-01]`.
+### [SMP-EP2-TK01] Simple Todo Document Schema & Model
+- **Summary:** Implement a clean, lightweight Todo schema to enable rapid CRUD development and immediate testing.
+- **Referenced Questions:** `[Q-SAMPLE-FHIR-01]` (Resolved: Hybrid incremental approach).
 - **Tasks & Acceptance Criteria:**
-  1. Write unit tests validating task status transitions (`draft` -> `in-progress` -> `completed` / `cancelled`).
-  2. Implement `TaskDocument` with fields:
-     - `id`: Unique identifier
-     - `owner_id`: Reference to User
-     - `title`: Short task summary (maps to FHIR `Task.description`)
-     - `note`: Extended description (maps to FHIR `Task.note`)
-     - `status`: Enum (`draft`, `in-progress`, `completed`, `cancelled`)
-     - `priority`: Enum (`routine`, `urgent`, `asap`, `stat`)
-     - `due_date`: Optional ISO8601 timestamp (maps to `executionPeriod.end`)
-     - `tags`: List of category strings
+  1. Write unit tests validating task creation with default values (`is_completed: false`, `priority: routine`).
+  2. Implement `TodoDocument(beanie.Document)` with fields:
+     - `id`: Pydantic / Mongo ObjectId
+     - `user_id`: Reference to user
+     - `title`: String
+     - `description`: Optional String
+     - `is_completed`: Boolean
+     - `priority`: Enum (`routine`, `urgent`)
+     - `due_date`: Optional datetime
      - `created_at`, `updated_at`, `completed_at`
-- **TDD Test Spec:** Schema tests verify valid deserialization and rejection of invalid status/priority values.
+- **TDD Test Spec:** Schema tests verify model validation and serialization to/from JSON.
 
 ---
 
-### [SMP-EP2-TK02] Task CRUD Service Layer
-- **Summary:** Implement the application service layer managing task queries, creation, updates, and user scoping.
+### [SMP-EP2-TK02] Todo Service Layer & CRUD Repository
+- **Summary:** Implement application service managing Todo creation, filtering, updating, and strict user data scoping.
 - **Referenced Questions:** `[Q-SAMPLE-ODM-01]`.
 - **Tasks & Acceptance Criteria:**
-  1. Write tests ensuring users can only read, update, and delete their own tasks.
-  2. Implement methods: `create_task()`, `get_tasks(user_id, status, priority, search)`, `toggle_task_completion()`, `delete_task()`.
-  3. Automatically set `completed_at` timestamp when status transitions to `completed`.
-- **TDD Test Spec:** Unit tests verify strict user data isolation and timestamp management.
+  1. Write tests ensuring users cannot read or mutate other users' todos.
+  2. Implement methods: `create_todo()`, `get_todos(user_id, is_completed, priority)`, `toggle_completion()`, `delete_todo()`.
+  3. Automatically record `completed_at` when `is_completed` becomes `True`.
+- **TDD Test Spec:** Unit tests verify strict user scoping and timestamp tracking.
 
 ---
 
-### [SMP-EP2-TK03] FHIR R4 Task Resource Serializer
-- **Summary:** Implement a converter that exports internal Todo records into compliant HL7 FHIR R4 `Task` JSON resources.
-- **Referenced Questions:** `[Q-SAMPLE-FHIR-01]`.
-- **Tasks & Acceptance Criteria:**
-  1. Write unit tests asserting serialized output matches official FHIR R4 schema structure (`resourceType: "Task"`).
-  2. Correctly map fields to FHIR standard codings (e.g., `priority: "urgent"`).
-- **TDD Test Spec:** Output JSON passes schema validation against FHIR R4 Task specifications.
-
----
-
-## Epoch 3: REST API & ML-Accessible Endpoints
-
-### [SMP-EP3-TK01] Task REST Endpoints
-- **Summary:** Build the authenticated REST routes for Task management.
-- **Referenced Questions:** `[Q-SAMPLE-FHIR-01]`.
+### [SMP-EP2-TK03] Todo REST API Endpoints
+- **Summary:** Build the authenticated REST routes for Todo management.
+- **Referenced Questions:** `[Q-SAMPLE-ODM-01]`.
 - **Tasks & Acceptance Criteria:**
   1. Implement endpoints:
-     - `GET /api/v1/tasks` (with filtering query params: `status`, `priority`, `search`)
-     - `POST /api/v1/tasks` (creates task, returns 201 Created)
-     - `GET /api/v1/tasks/{id}` (returns task details)
-     - `PATCH /api/v1/tasks/{id}` (updates fields or toggles completion)
-     - `DELETE /api/v1/tasks/{id}` (deletes task, returns 204 No Content)
+     - `GET /api/v1/todos` (with query filters: `is_completed`, `priority`, `search`)
+     - `POST /api/v1/todos` (creates todo, returns 201 Created)
+     - `GET /api/v1/todos/{id}` (returns todo details)
+     - `PATCH /api/v1/todos/{id}` (updates fields or toggles completion)
+     - `DELETE /api/v1/todos/{id}` (deletes todo, returns 204 No Content)
   2. Write integration tests for all status codes (200, 201, 204, 400, 404).
 - **TDD Test Spec:** API tests verify complete CRUD workflow for authenticated users.
 
 ---
 
-### [SMP-EP3-TK02] Machine Learning Bulk Data Export Endpoint
-- **Summary:** Build a high-throughput endpoint for ML platforms to export historical task records for training.
-- **Referenced Questions:** `[Q-SAMPLE-ML-01]`.
+## Epoch 3: Incremental FHIR Task Evolution (Stage 2)
+
+### [SMP-EP3-TK01] FHIR Task State Machine & Schema Expansion
+- **Summary:** Incrementally evolve the internal Todo model to adopt HL7 FHIR `Task` concepts and lifecycle states.
+- **Referenced Questions:** `[Q-SAMPLE-FHIR-01]`.
 - **Tasks & Acceptance Criteria:**
-  1. Implement `GET /api/v1/ml/export/tasks` supporting query parameters: `from_date`, `to_date`, `format=json|ndjson`.
-  2. Return clean tabular/vectorizable records including: `task_id`, `title_length`, `description_length`, `priority`, `tags`, `time_to_completion_seconds`.
-  3. Ensure user identifiers are either excluded or cryptographically pseudonymized (anonymized hash).
-- **TDD Test Spec:** Integration test verifies NDJSON format output and confirms no plaintext user PII is exposed.
+  1. Write tests for FHIR Task status state transitions:
+     - `draft` -> `requested` -> `in-progress` -> `completed` / `cancelled` / `failed`
+  2. Add FHIR-aligned fields to document:
+     - `intent`: Enum (`order`, `plan`, `proposal`)
+     - `priority`: Enum (`routine`, `urgent`, `asap`, `stat`)
+     - `execution_period`: Nested object with `start` and `end`
+     - `note`: Rich clinical annotations list
+- **TDD Test Spec:** Tests assert invalid status transitions raise a 400 validation error.
 
 ---
 
-### [SMP-EP3-TK03] Task Analytics & Metrics Endpoint
-- **Summary:** Expose summary statistics for user productivity and task completion velocity.
-- **Referenced Questions:** `[Q-SAMPLE-ML-01]`.
+### [SMP-EP3-TK02] FHIR R4 Task JSON Export Serializer
+- **Summary:** Build an export serializer that converts internal task documents into official HL7 FHIR R4 `Task` JSON resources.
+- **Referenced Questions:** `[Q-SAMPLE-FHIR-01]`.
 - **Tasks & Acceptance Criteria:**
-  1. Implement `GET /api/v1/tasks/analytics` returning: `total_tasks`, `completed_count`, `active_count`, `completion_rate`, `average_completion_hours`.
-  2. Write tests asserting correct aggregation math against test fixtures.
-- **TDD Test Spec:** Test asserts exact counts and average calculations across varied completed/pending tasks.
+  1. Write unit tests validating exported JSON against the official HL7 FHIR R4 Task schema.
+  2. Correctly structure `resourceType: "Task"`, `for: {"reference": "User/..."}`, `authoredOn`, and `executionPeriod`.
+  3. Add endpoint `GET /api/v1/todos/{id}/fhir` returning `application/fhir+json`.
+- **TDD Test Spec:** Pytest validates exported JSON structure against HL7 FHIR R4 specification.
 
 ---
 
-## Epoch 4: Flutter UI/UX & State Management
+## Epoch 4: Flutter UI/UX — Phase 1: Browser (Web)
 
-### [SMP-EP4-TK01] Task State Management Architecture
-- **Summary:** Implement client-side state management (Riverpod/BLoC) handling task list loading, filtering, and error handling.
+### [SMP-EP4-TK01] Todo State Management Architecture
+- **Summary:** Implement client-side state management (Riverpod/BLoC) handling task list loading, filtering, and error handling for Flutter Web.
 - **Referenced Questions:** `[Q-SAMPLE-UI-01]`.
 - **Tasks & Acceptance Criteria:**
-  1. Write unit tests for the TaskNotifier/Cubit simulating initial fetch, filter change, and task addition.
-  2. Implement optimistic update logic: immediately reflect toggled task in state before server response resolves; revert if server returns error.
-- **TDD Test Spec:** Unit tests assert state transitions: `Loading -> Success([tasks]) -> Error(message)`.
+  1. Write unit tests for the TodoNotifier/Cubit simulating initial fetch, filter change, and task addition.
+  2. Implement optimistic update logic: immediately reflect toggled checkbox in UI; revert if server returns error.
+- **TDD Test Spec:** Unit tests assert state transitions: `Loading -> Success([todos]) -> Error(message)`.
 
 ---
 
-### [SMP-EP4-TK02] Task List Screen with Filter Chips & Search
-- **Summary:** Build the main dashboard screen featuring Material 3 search bar, filter chips (`All`, `Active`, `Completed`, `Urgent`), and pull-to-refresh.
+### [SMP-EP4-TK02] Todo List Screen with Filter Chips & Search (Browser-First)
+- **Summary:** Build the main dashboard screen featuring Material 3 search bar, filter chips (`All`, `Active`, `Completed`, `Urgent`), and responsive desktop/browser layout.
 - **Referenced Questions:** `[Q-SAMPLE-UI-01]`.
 - **Tasks & Acceptance Criteria:**
   1. Write widget tests asserting filter chip taps filter the displayed task cards.
   2. Render empty state illustration when list is empty.
-  3. Support pull-to-refresh gesture updating the task list.
-- **TDD Test Spec:** Widget test asserts tapping "Completed" chip hides active tasks from the screen.
+  3. Ensure layout adapts smoothly to wide browser screens (max content width constraint).
+- **TDD Test Spec:** Widget test asserts tapping "Completed" chip hides active tasks.
 
 ---
 
-### [SMP-EP4-TK03] Dismissible Task Card Widget with Swipe Gestures
-- **Summary:** Create interactive task card widget with swipe-to-delete (left) and swipe-to-complete (right) gestures.
-- **Referenced Questions:** `[Q-SAMPLE-UI-01]`.
+### ~~[SMP-EP4-TK03-ORIG] Dismissible Task Card Widget with Swipe Gestures~~
+*Superseded based on user decision in `[Q-SAMPLE-UI-01]`: Swipe gestures rejected in favor of explicit controls.*
+~~- **Summary:** Create interactive task card widget with swipe-to-delete (left) and swipe-to-complete (right) gestures.~~
+~~- **Tasks & Acceptance Criteria:**~~
+~~  1. Simulate drag gestures left and right on `Dismissible`.~~
+~~  2. Swiping right toggles completion and plays a brief check animation.~~
+~~  3. Swiping left shows red delete background with trash icon, removes item, and shows SnackBar with "Undo" button.~~
+
+### [SMP-EP4-TK03] Explicit Task Card Widget (No Swipe Gestures)
+*(Active replacement per `[Q-SAMPLE-UI-01]`)*
+- **Summary:** Create a clean task card widget using explicit controls: a checkbox for completion, an edit button, and a delete button with confirmation dialog.
+- **Referenced Questions:** `[Q-SAMPLE-UI-01]` (Resolved: No swipe gestures).
 - **Tasks & Acceptance Criteria:**
-  1. Write widget tests simulating drag gestures left and right on `Dismissible`.
-  2. Swiping right toggles completion and plays a brief check animation.
-  3. Swiping left shows red delete background with trash icon, removes item, and shows SnackBar with "Undo" button.
-- **TDD Test Spec:** `testWidgets` verifies dismiss gesture triggers callback and SnackBar renders.
+  1. Write widget tests for:
+     - Tapping checkbox calls `onToggleComplete`.
+     - Tapping delete icon opens `AlertDialog` with "Cancel" and "Delete" actions.
+     - Confirming delete invokes `onDelete`.
+  2. Visual styling: completed tasks display strike-through title and muted text color.
+- **TDD Test Spec:** `testWidgets` verifies tapping checkbox marks item complete and delete dialog functions correctly.
 
 ---
 
-### [SMP-EP4-TK04] Ergonomic Modal Bottom Sheet for Task Creation
-- **Summary:** Develop a modal bottom sheet opened via Floating Action Button (FAB) for rapid task entry.
+### [SMP-EP4-TK04] Modal Bottom Sheet / Dialog for Task Creation
+- **Summary:** Develop an ergonomic creation form opened via Floating Action Button (FAB).
 - **Referenced Questions:** `[Q-SAMPLE-UI-01]`.
 - **Tasks & Acceptance Criteria:**
   1. Write widget tests for text field input, priority chip selection (`Routine`, `Urgent`), and save button.
-  2. Auto-focus text input when bottom sheet opens; submit on software keyboard "Done" action.
+  2. Auto-focus text input; submit on Enter key in browser.
   3. Validate that blank titles cannot be submitted.
 - **TDD Test Spec:** Widget test verifies button remains disabled when input is empty and adds task on submit.
 
 ---
 
-## Epoch 5: Machine Learning Integration & Predictive Features
+## Epoch 5: Machine Learning Bulk Data Export Layer
 
-### [SMP-EP5-TK01] ML Task Priority Inference Service
-- **Summary:** Build a lightweight NLP inference service suggesting task priority and tags based on the task description.
+### ~~[SMP-EP5-TK01-ORIG] ML Task Priority Inference Service~~
+*Superseded based on user decision in `[Q-SAMPLE-ML-01]`: Do not build ML models into the app.*
+~~- **Summary:** Build a lightweight NLP inference service suggesting task priority and tags based on the task description.~~
+~~- **Tasks & Acceptance Criteria:**~~
+~~  1. Implement inference module using scikit-learn pipeline.~~
+~~  2. Create endpoint `POST /api/v1/ml/predict-priority` returning predicted priority and confidence.~~
+
+### ~~[SMP-EP5-TK02-ORIG] Flutter Smart Priority Suggestion Integration~~
+*Superseded based on user decision in `[Q-SAMPLE-ML-01]`: No embedded ML suggestions in UI.*
+~~- **Summary:** Integrate the ML priority prediction endpoint into the Flutter task creation sheet with 400ms debounce.~~
+
+---
+
+### [SMP-EP5-TK01] Authorized ML Bulk Data Export Endpoint
+*(Active replacement per `[Q-SAMPLE-ML-01]`)*
+- **Summary:** Build dedicated, secured endpoints for external ML platforms to extract structured task data for training.
+- **Referenced Questions:** `[Q-SAMPLE-ML-01]` (Resolved: Clean ML export only).
+- **Tasks & Acceptance Criteria:**
+  1. Implement `GET /api/v1/ml/export/tasks` supporting query parameters: `from_date`, `to_date`, `format=json|ndjson`.
+  2. Implement separate authorization: endpoint requires an ML service API key or admin token (`X-ML-Service-Key`).
+  3. Return clean tabular/vectorizable records: `task_id`, `title_length`, `description_length`, `priority`, `status`, `time_to_completion_seconds`.
+  4. Ensure user identifiers are cryptographically pseudonymized (anonymized hash) to prevent data leakage.
+- **TDD Test Spec:** Integration tests verify format output (JSON & NDJSON), verify 401 on missing API key, and confirm zero raw user PII.
+
+---
+
+### [SMP-EP5-TK02] Task Metrics & Aggregation Endpoint
+*(Active replacement per `[Q-SAMPLE-ML-01]`)*
+- **Summary:** Expose summary statistics for task velocity and completion patterns.
 - **Referenced Questions:** `[Q-SAMPLE-ML-01]`.
 - **Tasks & Acceptance Criteria:**
-  1. Implement inference module (using scikit-learn pipeline or keyword/heuristic embeddings).
-  2. Create endpoint `POST /api/v1/ml/predict-priority` accepting `{"text": "..."}` and returning `{"priority": "urgent"|"routine", "confidence": float, "tags": [...]}`.
-  3. Write tests verifying known urgent medical keywords ("stat", "urgent", "emergency", "immediately") trigger `urgent` prediction.
-- **TDD Test Spec:** Unit tests verify predicted priority matches expected thresholds across test phrases.
+  1. Implement `GET /api/v1/ml/analytics/summary` returning: `total_tasks`, `completed_count`, `active_count`, `completion_rate`, `average_completion_hours`.
+  2. Write tests asserting correct aggregation calculations against test fixtures.
+- **TDD Test Spec:** Test asserts exact counts and average calculations across varied completed/pending tasks.
 
 ---
 
-### [SMP-EP5-TK02] Flutter Smart Priority Suggestion Integration
-- **Summary:** Integrate the ML priority prediction endpoint into the Flutter task creation bottom sheet.
-- **Referenced Questions:** `[Q-SAMPLE-ML-01]`, `[Q-SAMPLE-UI-01]`.
+## Epoch 6: Multi-Platform Expansion & AWS Deployment
+
+### [SMP-EP6-TK01] Multi-Platform Verification — Phase 2: Mobile & Phase 3: Desktop
+- **Summary:** Verify and adapt the Flutter client for Mobile (Android/iOS) and native Windows Desktop.
+- **Referenced Questions:** `[Q-SAMPLE-UI-01]`.
 - **Tasks & Acceptance Criteria:**
-  1. In Flutter task creation sheet, debounce user typing by 400ms.
-  2. Call ML prediction endpoint and display a subtle suggestion badge (e.g., *"Suggested: Urgent (92%)"* with one-tap apply).
-  3. Write widget tests mocking the suggestion response and verifying badge displays.
-- **TDD Test Spec:** Widget test asserts suggestion badge appears after typing urgent keywords.
+  1. **Phase 2 (Mobile):** Verify touch targets (minimum 48x48dp), mobile soft keyboard avoidance, and hardware back button behavior.
+  2. **Phase 3 (Desktop):** Verify native Windows build (`flutter run -d windows`), title bar rendering, and keyboard shortcuts (`Ctrl+N` for new task).
+- **TDD Test Spec:** Widget tests verify responsive layout across mobile and desktop viewport dimensions.
 
 ---
 
-## Epoch 6: End-to-End Testing & AWS Packaging
-
-### [SMP-EP6-TK01] Backend Full E2E Test Suite
-- **Summary:** Automated integration test suite running full user workflows against a real test database.
+### [SMP-EP6-TK02] Full Backend E2E Test Suite
+- **Summary:** Automated integration test suite running full user workflows against a real test MongoDB database.
 - **Referenced Questions:** `[Q-SAMPLE-ODM-01]`.
 - **Tasks & Acceptance Criteria:**
-  1. Workflow: Register user -> Login -> Create 3 Tasks -> Filter by Urgent -> Complete Task -> Export ML Dataset -> Fetch Analytics.
-  2. Assert all database records and calculations reflect the complete workflow.
+  1. Workflow: Register user -> Login -> Create Tasks -> Transition FHIR states -> Export ML Dataset -> Fetch Analytics.
+  2. Execute with zero mocks on domain and data persistence layers.
 - **TDD Test Spec:** Pytest suite passes 100% with no unhandled exceptions.
 
 ---
 
-### [SMP-EP6-TK02] Flutter E2E Integration Test (`integration_test`)
-- **Summary:** Automated end-to-end user test running on Flutter Web or Desktop.
-- **Referenced Questions:** `[Q-SAMPLE-UI-01]`.
+### [SMP-EP6-TK03] AWS Deployment Blueprint (App Runner + DocumentDB + S3)
+- **Summary:** Create Dockerfiles and AWS deployment guides for cloud production.
+- **Referenced Questions:** `[Q-SAMPLE-AWS-01]` (Resolved: Local Docker first, AWS ready).
 - **Tasks & Acceptance Criteria:**
-  1. Implement `integration_test/app_test.dart`.
-  2. Automate: Launch app -> Enter credentials -> Tap Login -> Add new task -> Swipe to complete -> Verify badge update.
-- **TDD Test Spec:** `flutter test integration_test/app_test.dart` passes cleanly.
-
----
-
-### [SMP-EP6-TK03] AWS Deployment & Containerization Blueprint
-- **Summary:** Create Dockerfiles and deployment manifests for AWS App Runner, DocumentDB, and S3/CloudFront.
-- **Referenced Questions:** `[Q-SAMPLE-AWS-01]`.
-- **Tasks & Acceptance Criteria:**
-  1. Multi-stage `backend/Dockerfile` optimizing image size.
-  2. Docker build configuration for Flutter Web (`frontend/web`).
-  3. AWS deployment documentation explaining how to push backend to AWS App Runner / ECR and frontend to S3/CloudFront.
+  1. Multi-stage `backend/Dockerfile` optimizing image size for AWS App Runner / ECS Fargate.
+  2. Build and export Flutter Web bundle (`flutter build web`) for deployment to Amazon S3 + CloudFront CDN.
+  3. Document DocumentDB connection string configuration and VPC peering setup in AWS.
 - **TDD Test Spec:** Docker build succeeds and container passes health check.

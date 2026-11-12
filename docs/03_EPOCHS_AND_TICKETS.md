@@ -116,10 +116,10 @@ Tickets are structured in sequential **Epochs** (phases). Every ticket that depe
 ---
 
 ### [EP2-TK03] AWS NoSQL Database Persistence Adapter
-- **Summary:** Implement the concrete database adapter for the selected AWS NoSQL option (DocumentDB, DynamoDB, or AWS HealthLake).
+- **Summary:** Implement the concrete database adapter for the selected AWS NoSQL option (Amazon DocumentDB or AWS HealthLake; ~~Amazon DynamoDB~~ *de-prioritized per `[Q-SAMPLE-ODM-01]`*).
 - **Referenced Questions:** `[Q-DATA-01]` (Primary Storage Choice), `[Q-DATA-02]` (Multi-Tenancy).
 - **Tasks & Acceptance Criteria:**
-  1. Implement the adapter satisfying the repository port interface.
+  1. Implement the adapter satisfying the repository port interface using Beanie/Motor for DocumentDB.
   2. Ensure indexes for efficient querying by patient ID, observation date, and code are defined.
   3. Run the shared repository contract tests against a local test container or local mock.
 - **TDD Test Spec:** Contract tests pass with zero schema discrepancies between domain models and database records.
@@ -223,29 +223,50 @@ Tickets are structured in sequential **Epochs** (phases). Every ticket that depe
 - **Referenced Questions:** `[Q-ML-01]` (ML Scope), `[Q-AUTH-01]` (HIPAA Safe Harbor).
 - **Tasks & Acceptance Criteria:**
   1. Write unit tests ensuring direct identifiers (names, addresses, phone numbers, exact birthdates) are stripped or hashed.
-  2. Implement data transformation pipeline aggregating longitudinal observations into tabular feature arrays (e.g., Pandas / Polars DataFrames).
+  2. Implement data transformation pipeline aggregating longitudinal observations into tabular feature arrays (e.g., Pandas / Polars DataFrames) and outputting NDJSON/JSON.
 - **TDD Test Spec:** Unit tests assert output dataset contains zero HIPAA 18 direct identifiers and verifies schema matches ML feature requirements.
 
 ---
 
-### [EP5-TK02] ML Inference Service & Model Wrapper
-- **Summary:** Implement model loading, feature preprocessing, and prediction generation behind a clean domain service interface.
-- **Referenced Questions:** `[Q-ML-01]`, `[Q-ML-02]` (ML Hosting & Inference Strategy).
+### ~~[EP5-TK02] ML Inference Service & Model Wrapper~~
+*Superseded based on decision in `sample_flutter_app/docs/01_ARCHITECTURE_AND_QUESTIONS.md` (`[Q-SAMPLE-ML-01]`): Do not build ML inference models directly into the application.*
+~~- **Summary:** Implement model loading, feature preprocessing, and prediction generation behind a clean domain service interface.~~
+~~- **Referenced Questions:** `[Q-ML-01]`, `[Q-ML-02]` (ML Hosting & Inference Strategy).~~
+~~- **Tasks & Acceptance Criteria:**~~
+~~  1. Write unit tests with synthetic feature inputs validating inference output structure (e.g., risk probability between 0.0 and 1.0, prediction class).~~
+~~  2. Implement model runner with graceful fallback and error handling if input values are out of bounds or missing.~~
+~~- **TDD Test Spec:** `test_model_inference_returns_valid_prediction()` passes in under 100ms.~~
+
+### [EP5-TK02] Authorized ML Bulk Data Export Service (NDJSON/JSON)
+*(Active replacement per `[Q-SAMPLE-ML-01]`)*
+- **Summary:** Build dedicated, secured endpoints for external ML platforms to extract structured, de-identified FHIR observation data.
+- **Referenced Questions:** `[Q-ML-01]` (Resolved: Clean ML export only), `[Q-AUTH-01]`.
 - **Tasks & Acceptance Criteria:**
-  1. Write unit tests with synthetic feature inputs validating inference output structure (e.g., risk probability between 0.0 and 1.0, prediction class).
-  2. Implement model runner with graceful fallback and error handling if input values are out of bounds or missing.
-- **TDD Test Spec:** `test_model_inference_returns_valid_prediction()` passes in under 100ms.
+  1. Implement `GET /fhir/export/observations` supporting query parameters: `from_date`, `to_date`, `code`, `format=ndjson|json`.
+  2. Enforce separate authorization: endpoint requires an ML service API key or admin token (`X-ML-Service-Key`).
+  3. Ensure all patient identifiers are cryptographically pseudonymized (anonymized hash) per HIPAA Safe Harbor.
+- **TDD Test Spec:** Integration tests verify format output (NDJSON & JSON), verify 401 on missing API key, and confirm zero direct patient identifiers.
 
 ---
 
-### [EP5-TK03] ML Prediction API & Patient Insights Integration
-- **Summary:** Connect the ML inference service to an authenticated API endpoint and display risk scores / analytical insights in the Flutter UI.
-- **Referenced Questions:** `[Q-BACKEND-01]`, `[Q-ML-02]`.
+### ~~[EP5-TK03] ML Prediction API & Patient Insights Integration~~
+*Superseded based on decision in `sample_flutter_app/docs/01_ARCHITECTURE_AND_QUESTIONS.md` (`[Q-SAMPLE-ML-01]`): No embedded ML prediction endpoints or risk scoring widgets in UI.*
+~~- **Summary:** Connect the ML inference service to an authenticated API endpoint and display risk scores / analytical insights in the Flutter UI.~~
+~~- **Referenced Questions:** `[Q-BACKEND-01]`, `[Q-ML-02]`.~~
+~~- **Tasks & Acceptance Criteria:**~~
+~~  1. Implement backend endpoint `GET /fhir/Patient/{id}/$insights` returning ML predictions packaged as standard FHIR `RiskAssessment` resources.~~
+~~  2. Create Flutter widget displaying the risk score or analytical trend.~~
+~~  3. Write corresponding pytest API tests and Flutter widget tests.~~
+~~- **TDD Test Spec:** API test verifies `RiskAssessment` resource structure and Flutter widget test verifies visual display of insight metrics.~~
+
+### [EP5-TK03] Clinical Analytics & Aggregation Metrics Endpoint
+*(Active replacement per `[Q-SAMPLE-ML-01]`)*
+- **Summary:** Expose summary statistics for clinical measurements without embedding complex ML models.
+- **Referenced Questions:** `[Q-ML-01]`.
 - **Tasks & Acceptance Criteria:**
-  1. Implement backend endpoint `GET /fhir/Patient/{id}/$insights` returning ML predictions packaged as standard FHIR `RiskAssessment` resources.
-  2. Create Flutter widget displaying the risk score or analytical trend.
-  3. Write corresponding pytest API tests and Flutter widget tests.
-- **TDD Test Spec:** API test verifies `RiskAssessment` resource structure and Flutter widget test verifies visual display of insight metrics.
+  1. Implement `GET /fhir/Patient/{id}/$summary-metrics` returning aggregated mean, min, max, and frequency across vital sign observations.
+  2. Write tests asserting correct statistical aggregations against test fixtures.
+- **TDD Test Spec:** Pytest asserts mathematical correctness across longitudinal test observation sets.
 
 ---
 

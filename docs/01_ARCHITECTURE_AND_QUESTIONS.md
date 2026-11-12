@@ -34,10 +34,11 @@ You specifically asked: **"Would Flask also be an option alongside FastAPI?"**
 #### [Q-BACKEND-01] Framework Selection
 **Devin:** Given that FHIR resources require rigorous schema validation (hundreds of deeply nested JSON fields) and your plan involves machine learning APIs and high test coverage:
 - Would you prefer **FastAPI** (for native Pydantic schema validation, OpenAPI generation, and async performance)?
-- Or do you want to consider **Flask** (simpler traditional WSGI structure, but requiring extra manual configuration for validation and docs)?
-- Or would you prefer to evaluate a hybrid/microservice setup (e.g., FastAPI for FHIR/ML APIs, and Flask/serverless for lightweight tasks)?
+- ~~Or do you want to consider **Flask** (simpler traditional WSGI structure, but requiring extra manual configuration for validation and docs)?~~
+- ~~Or would you prefer to evaluate a hybrid/microservice setup (e.g., FastAPI for FHIR/ML APIs, and Flask/serverless for lightweight tasks)?~~
 
-**S:** 
+**S:** *(Resolved via sample app decision `[Q-SAMPLE-ODM-01]`)*: Proceed with **FastAPI** natively combined with Pydantic v2 and Beanie ODM.
+*Historical Note: Flask was considered but ruled out due to FastAPI's native async capabilities, Pydantic v2 data validation, and seamless ODM support with Beanie.*
 
 ---
 
@@ -50,9 +51,8 @@ Medical data adhering to FHIR (Fast Healthcare Interoperability Resources) is re
 1. **Amazon DocumentDB (with MongoDB compatibility)**
    - *Pros:* Native JSON/BSON document store. Highly intuitive mapping from FHIR JSON resources directly to collections. Supports rich aggregation pipelines and indexing on arbitrary nested keys (e.g., `code.coding.system`, `subject.reference`).
    - *Cons:* Provisioned cluster model (always-on compute instances, higher baseline cost than purely serverless).
-2. **Amazon DynamoDB (Key-Value / Document Store)**
-   - *Pros:* Fully serverless, pay-per-request, single-digit millisecond latency, automated scaling, zero instance management.
-   - *Cons:* Limited document size (400 KB max item limit). Querying arbitrary nested fields requires careful partition/sort key design (Single-Table Design) or secondary indexes (GSIs). Complex FHIR searches (e.g., searching observations by date range + patient ID + LOINC code) often require DynamoDB Streams feeding into Amazon OpenSearch Service.
+2. ~~**Amazon DynamoDB (Key-Value / Document Store)**~~
+   - *Historical Note (from sample app `[Q-SAMPLE-ODM-01]`): DynamoDB was de-prioritized due to its rigid single-table query requirements, 400 KB item limit, and lack of native Pydantic v2 ODM support. The primary NoSQL architecture targets **Amazon DocumentDB** (MongoDB-compatible).*
 3. **AWS HealthLake (Managed FHIR Store)**
    - *Pros:* Purpose-built, HIPAA-eligible AWS service designed specifically for FHIR R4. Automatically validates FHIR resources, provides built-in FHIR search query endpoints (`GET /Observation?patient=...&code=...`), and exports integrated data directly to S3 in Parquet/JSON format for AWS SageMaker / ML pipelines.
    - *Cons:* Proprietary managed API with specific pricing structure; less customizable if non-standard data schemas are required.
@@ -64,10 +64,10 @@ Medical data adhering to FHIR (Fast Healthcare Interoperability Resources) is re
 **Devin:** How do you want to approach the database backend on AWS?
 - **Option A:** Fully managed FHIR service via **AWS HealthLake** (fastest compliance, built-in FHIR R4 APIs and ML export, less custom backend code needed).
 - **Option B:** **Amazon DocumentDB** (MongoDB compatible JSON document store; full control over custom schemas, aggregations, and indexes).
-- **Option C:** **Amazon DynamoDB** (Serverless, low cost at low volumes; requires specialized indexing patterns or DynamoDB + OpenSearch for multi-field FHIR queries).
+- ~~**Option C:** **Amazon DynamoDB** (Serverless, low cost at low volumes; requires specialized indexing patterns or DynamoDB + OpenSearch for multi-field FHIR queries).~~ *(De-prioritized per `[Q-SAMPLE-ODM-01]`)*
 - **Option D:** Undecided / Start with an abstract repository interface tested locally against MongoDB or in-memory fixtures, deferring the AWS provider choice.
 
-**S:** 
+**S:** *(Influenced by `[Q-SAMPLE-ODM-01]`)*: Testing locally with MongoDB via Beanie, targeting **Amazon DocumentDB** on AWS. Keep abstract repository interfaces so HealthLake remains an option. 
 
 #### [Q-DATA-02] Data Isolation & Multi-Tenancy
 **Devin:** Will this system serve multiple organizations/clinics (multi-tenant) or a single organization/user base? If multi-tenant, should data be partitioned logically (tenant ID column/field) or physically (separate database/collection per tenant) for compliance?
@@ -152,20 +152,22 @@ Under HIPAA:
 
 #### [Q-ML-01] Scope & Nature of Machine Learning Models
 **Devin:** What kind of machine learning tasks do you anticipate performing on the medical data?
-- Predictive analytics (e.g., risk scoring, anomaly detection on vital signs)?
-- Natural Language Processing (e.g., clinical note summarization, medical terminology extraction)?
-- Time-series forecasting (e.g., glucose levels, heart rate variability)?
-- Real-time inference (instant response to the user) vs. asynchronous/batch insights?
+- ~~Predictive analytics (e.g., risk scoring, anomaly detection on vital signs)?~~
+- ~~Natural Language Processing (e.g., clinical note summarization, medical terminology extraction)?~~
+- ~~Time-series forecasting (e.g., glucose levels, heart rate variability)?~~
+- ~~Real-time inference (instant response to the user) vs. asynchronous/batch insights?~~
+- **Clean ML Data Export Only:** High-throughput, authorized bulk export endpoints (JSON/NDJSON) designed for external ML pipelines (SageMaker, local research notebooks).
 
-**S:** 
+**S:** *(Resolved in sample app `[Q-SAMPLE-ML-01]`)*: Do not build ML models or inference directly into the application. Focus exclusively on clean, secure, and authorized bulk data exports (NDJSON/JSON) that external ML platforms can ingest.
 
 #### [Q-ML-02] ML Hosting & Inference Strategy
 **Devin:** Where should model inference run initially?
-- Directly within the Python backend API (simplest for MVP, fast local development)?
-- In an asynchronous task queue / worker (Celery/SQS) to prevent blocking HTTP requests?
-- On AWS SageMaker or dedicated serverless containers?
+- ~~Directly within the Python backend API (simplest for MVP, fast local development)?~~
+- ~~In an asynchronous task queue / worker (Celery/SQS) to prevent blocking HTTP requests?~~
+- ~~On AWS SageMaker or dedicated serverless containers?~~
+- **External ML Consumers:** Handled outside the application via exported datasets.
 
-**S:** 
+**S:** *(Resolved in sample app `[Q-SAMPLE-ML-01]`)*: External to the application. The backend's responsibility is clean, structured data extraction.
 
 ---
 
@@ -185,14 +187,19 @@ Flutter delivers high-performance native binaries for iOS, Android, Web, and Des
 3. **Networking & FHIR Client:**
    - `dio` or `http`: Modern HTTP client with interceptors for attaching OAuth Bearer tokens, token refresh, and retry logic.
    - FHIR Dart packages: Existing open-source Dart libraries (`fhir`, `fhir_at_rest`) parse and serialize FHIR resources with full type safety.
+4. **UI Gestures & Interaction Design:**
+   - ~~Swipe left / right gestures for task or observation management~~ *(Ruled out per `[Q-SAMPLE-UI-01]`)*.
+   - Explicit controls: checkboxes, action buttons, and modal confirmation dialogs.
 
 #### [Q-FLUTTER-01] Target Platforms
 **Devin:** Which platforms should we prioritize for the Flutter application first?
-- Mobile (iOS & Android)?
-- Web (Browser-based dashboard)?
-- Both mobile and web simultaneously?
+- ~~Both mobile and web simultaneously?~~
+- **Phased Rollout:**
+  1. **Phase 1: Browser (Flutter Web)** (Prioritized for rapid iteration and testing)
+  2. **Phase 2: Mobile (iOS & Android)**
+  3. **Phase 3: Desktop (Windows)**
 
-**S:** 
+**S:** *(Resolved in sample app `[Q-SAMPLE-UI-01]`)*: Prioritize Browser (Web) first, then Mobile, then Desktop. No swipe gestures.
 
 #### [Q-FLUTTER-02] State Management Preference
 **Devin:** Since you mentioned you are new to Flutter, would you like us to adopt **Riverpod** (widely regarded as the cleanest, most test-friendly state management tool for Flutter today), or **BLoC** (strict event/state architecture)?
@@ -225,15 +232,15 @@ You requested a **test-driven development (TDD)** approach with deep test covera
 ## Summary of Open Question Index
 
 To track answers easily and cross-reference them in the development tickets, the question identifiers are:
-- `[Q-BACKEND-01]`: Web Framework Selection (FastAPI vs. Flask)
-- `[Q-DATA-01]`: Primary AWS NoSQL Data Store / FHIR Storage (HealthLake vs. DocumentDB vs. DynamoDB vs. Abstracted)
+- `[Q-BACKEND-01]`: **Resolved: FastAPI** *(Decision from `[Q-SAMPLE-ODM-01]`. ~~Flask~~ struck through).*
+- `[Q-DATA-01]`: **Resolved: Amazon DocumentDB / Beanie** *(Decision from `[Q-SAMPLE-ODM-01]`. ~~DynamoDB~~ struck through).*
 - `[Q-DATA-02]`: Multi-Tenancy and Data Isolation
 - `[Q-FHIR-01]`: FHIR Release & Resource Scope
 - `[Q-FHIR-02]`: SMART on FHIR Launch Context (Standalone vs. EHR Launch)
 - `[Q-AUTH-01]`: Identity Provider (Cognito vs. Custom vs. External OIDC)
 - `[Q-AUTH-02]`: User Roles & Registration Workflows
-- `[Q-ML-01]`: Machine Learning Model Scope & Tasks
-- `[Q-ML-02]`: ML Hosting & Inference Pipeline
-- `[Q-FLUTTER-01]`: Flutter Target Platforms (Mobile vs. Web)
+- `[Q-ML-01]`: **Resolved: Clean ML Bulk Export Only** *(Decision from `[Q-SAMPLE-ML-01]`. ~~Embedded ML models~~ struck through).*
+- `[Q-ML-02]`: **Resolved: External ML Consumption** *(Decision from `[Q-SAMPLE-ML-01]`)*.
+- `[Q-FLUTTER-01]`: **Resolved: Phased Browser -> Mobile -> Desktop; No Swipes** *(Decision from `[Q-SAMPLE-UI-01]`)*.
 - `[Q-FLUTTER-02]`: Flutter State Management Choice
 - `[Q-TEST-01]`: Test Coverage Threshold & CI Automation

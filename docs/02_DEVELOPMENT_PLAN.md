@@ -49,15 +49,16 @@ The backend uses **`pytest`** as the unified test runner and assertion framework
 backend/
 ├── src/
 │   ├── domain/        # Pure Python FHIR business logic & entities
-│   ├── services/      # Application use cases (e.g. ingest_vitals.py)
-│   ├── adapters/      # DB implementations (DocumentDB, HealthLake, DynamoDB)
-│   └── api/           # Web framework endpoints (FastAPI / Flask routers)
+│   ├── services/      # Application use cases (e.g. ingest_vitals.py, ml_export.py)
+│   ├── adapters/      # DB implementations (DocumentDB, HealthLake, ~~DynamoDB~~)
+│   └── api/           # Web framework endpoints (FastAPI routers; ~~Flask~~ ruled out per [Q-SAMPLE-ODM-01])
 └── tests/
     ├── conftest.py    # Shared pytest fixtures (mock DB, auth tokens, sample FHIR data)
     ├── unit/          # Fast in-memory unit tests (< 10ms each)
     │   ├── test_fhir_models.py
     │   ├── test_auth_service.py
-    │   └── test_ml_pipeline.py
+    │   ├── ~~test_ml_pipeline.py~~   # Superseded per [Q-SAMPLE-ML-01]
+    │   └── test_ml_export.py         # Added per [Q-SAMPLE-ML-01]: test bulk NDJSON/JSON data export
     ├── integration/   # Tests verifying database queries and adapter contracts
     │   └── test_documentdb_repository.py
     └── api/           # Route tests verifying HTTP status codes and responses
@@ -105,6 +106,16 @@ Since you are completely new to Flutter, here is an orientation to Flutter's bui
 #### Mocking in Flutter: `mocktail`
 In modern Flutter, **`mocktail`** is the recommended mocking library (it offers clean, type-safe mocks without requiring code generation like older tools).
 
+#### Phased Multi-Platform Testing & Gesture Policy
+*(Decisions adopted from `[Q-SAMPLE-UI-01]`)*:
+1. **Phased Platform Rollout:**
+   - **Phase 1: Browser (Flutter Web):** Run tests and test UI rapidly in Chrome (`flutter run -d chrome`).
+   - **Phase 2: Mobile (Android & iOS):** Test touch targets and mobile secure storage.
+   - **Phase 3: Desktop (Windows):** Test desktop window resizing and keyboard shortcuts.
+2. **Explicit Controls Policy:**
+   - ~~Swipe left / right gestures for task or observation management~~ *(Struck through per `[Q-SAMPLE-UI-01]`)*.
+   - All interactive items use explicit UI controls: checkboxes, action buttons, and modal confirmation dialogs.
+
 ---
 
 ## 3. Hexagonal / Clean Architecture Pattern
@@ -114,7 +125,8 @@ To fulfill your requirement: *"I want to be somewhat agnostic about technologies
 ```
                    ┌──────────────────────────────────────┐
                    │            API Framework             │
-                   │      (FastAPI or Flask or CLI)       │
+                   │        (FastAPI [chosen])            │
+                   │    (~~Flask~~ [ruled out])           │
                    └──────────────────┬───────────────────┘
                                       │ (Driving Adapter)
                                       ▼
@@ -138,24 +150,32 @@ To fulfill your requirement: *"I want to be somewhat agnostic about technologies
          ┌────────────────────────────┼────────────────────────────┐
          ▼                            ▼                            ▼
 ┌──────────────────┐        ┌──────────────────┐        ┌──────────────────┐
-│ Amazon DocumentDB│        │ Amazon DynamoDB  │        │  AWS HealthLake  │
-│     Adapter      │        │     Adapter      │        │     Adapter      │
+│ Amazon DocumentDB│        │~~Amazon DynamoDB~│        │  AWS HealthLake  │
+│ Adapter (Primary)│        │Adapter (De-prior)│        │     Adapter      │
 └──────────────────┘        └──────────────────┘        └──────────────────┘
 ```
 
 ### Why this benefits you:
-- **Framework Agnostic:** Whether we choose FastAPI or Flask (or swap later), the core business logic and FHIR entities remain 100% untouched.
-- **Database Agnostic:** We can write and test the domain against an `InMemoryFHIRRepository` in pytest. When you decide between DocumentDB, DynamoDB, or AWS HealthLake, we simply implement a concrete adapter for that database.
-- **Cloud Agnostic:** Local development can run entirely offline or in local containers without AWS costs.
+- **Framework Agnostic:** FastAPI is selected based on `[Q-SAMPLE-ODM-01]`, but domain logic remains pure Python and decoupled from the web layer.
+- **Database Agnostic:** We write and test the domain against an `InMemoryFHIRRepository` in pytest. For AWS, Amazon DocumentDB (MongoDB-compatible) is primary per `[Q-SAMPLE-ODM-01]`, while AWS HealthLake remains an alternative adapter. ~~DynamoDB~~ is de-prioritized.
+- **Cloud Agnostic:** Local development runs entirely offline or in local Docker containers without AWS costs.
 
 ---
 
-## 4. Development Workflow & Git Strategy
+## 4. Development Workflow, WSL Execution & Git Strategy
 
-1. **Feature Branching:** Every development ticket will have a dedicated branch (e.g., `feat/ep1-tk01-user-model`).
-2. **Pre-commit Quality Gates:**
+1. **WSL Execution Environment:**
+   - As documented in `AGENTS.md`, execute all backend, python, pip, and pytest commands via WSL:
+     ```bash
+     wsl -e bash -lc "cd /mnt/c/Users/seant/OneDrive/Desktop/main_repos/sample-fhir && pytest"
+     ```
+2. **Feature Branching:** Every development ticket will have a dedicated branch (e.g., `feat/ep1-tk01-user-model`).
+3. **Pre-commit Quality Gates:**
    - Python: `ruff` (linter and formatter), `mypy` (type-checker), `pytest` (test suite).
    - Flutter: `flutter analyze` (Dart analyzer) and `flutter test`.
+4. **Continuous Integration (CI):**
+   - GitHub Actions will run automated test suites on every pull request.
+   - Enforce coverage threshold (defined in `[Q-TEST-01]`).
 3. **Continuous Integration (CI):**
    - GitHub Actions will run automated test suites on every pull request.
    - Enforce coverage threshold (defined in `[Q-TEST-01]`).
