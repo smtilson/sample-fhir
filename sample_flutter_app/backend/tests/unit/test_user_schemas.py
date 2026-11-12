@@ -12,7 +12,7 @@ from typing import Any
 import pytest
 from pydantic import ValidationError
 
-from src.schemas.user import UserCreate, UserOut
+from src.schemas.user import UserCreate, UserOut, UserUpdate
 
 
 # --- 1. UserCreate Schema Tests ---
@@ -80,7 +80,43 @@ def test_user_create_schema_missing_password_raises_validation_error() -> None:
         UserCreate(name="Alice", email="alice@example.com")  # type: ignore[call-arg]
 
 
-# --- 2. UserOut Public Contract & Credential Shielding Tests ---
+# --- 2. UserUpdate Schema Tests ---
+
+def test_user_update_schema_all_fields_optional() -> None:
+    """Verifies that UserUpdate can be instantiated with no fields provided."""
+    update = UserUpdate()
+    assert update.name is None
+    assert update.email is None
+    assert update.password is None
+
+
+def test_user_update_schema_accepts_partial_data() -> None:
+    """Verifies that UserUpdate accepts a subset of fields."""
+    update = UserUpdate(name="Updated Name")
+    assert update.name == "Updated Name"
+    assert update.email is None
+    assert update.password is None
+
+
+def test_user_update_schema_invalid_email_raises_validation_error() -> None:
+    """Verifies that UserUpdate rejects malformed email strings."""
+    with pytest.raises(ValidationError):
+        UserUpdate(email="notanemail")  # type: ignore[arg-type]
+
+
+def test_user_update_schema_short_password_raises_validation_error() -> None:
+    """Verifies that UserUpdate rejects passwords shorter than 4 characters."""
+    with pytest.raises(ValidationError):
+        UserUpdate(password="12")
+
+
+def test_user_update_schema_empty_name_raises_validation_error() -> None:
+    """Verifies that UserUpdate rejects empty string names."""
+    with pytest.raises(ValidationError):
+        UserUpdate(name="")
+
+
+# --- 3. UserOut Public Contract & Credential Shielding Tests ---
 
 def test_user_out_schema_instantiation_from_dict() -> None:
     """Verifies that valid data instantiates UserOut with exact public fields."""

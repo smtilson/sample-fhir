@@ -18,7 +18,7 @@ from fastapi import APIRouter, HTTPException, status
 
 from src.core.security import hash_password
 from src.models.user import User
-from src.schemas.user import UserCreate, UserOut
+from src.schemas.user import UserCreate, UserOut, UserUpdate
 
 router = APIRouter(prefix="/api/v1/users", tags=["Users"])
 
@@ -96,3 +96,74 @@ async def get_user(user_id: str) -> UserOut:
         name=user.name,
         email=user.email,
     )
+
+
+@router.patch(
+    "/{user_id}",
+    response_model=UserOut,
+    summary="Update user profile fields",
+)
+async def update_user(user_id: str, user_in: UserUpdate) -> UserOut:
+    """Update specific fields of an existing user account."""
+    try:
+        user = await User.get(user_id)
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found",
+        )
+
+    if user is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found",
+        )
+
+    # If email is being changed, check for conflict with another user
+    if user_in.email is not None and user_in.email != user.email:
+        existing = await User.find_one(User.email == user_in.email)
+        if existing is not None and existing.id != user.id:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Email already registered",
+            )
+        user.email = user_in.email
+
+    if user_in.name is not None:
+        user.name = user_in.name
+
+    if user_in.password is not None:
+        user.password = hash_password(user_in.password)
+
+    await user.save()
+
+    return UserOut(
+        id=str(user.id),
+        name=user.name,
+        email=user.email,
+    )
+
+
+@router.delete(
+    "/{user_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+    summary="Delete user account",
+)
+async def delete_user(user_id: str) -> None:
+    """Delete a user account by its database identifier."""
+    try:
+        user = await User.get(user_id)
+    except Exception:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found",
+        )
+
+    if user is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found",
+        )
+
+    await user.delete()
+

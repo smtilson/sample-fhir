@@ -109,3 +109,21 @@ This document tracks unresolved technical issues, environmental friction points,
 
 **S:** 
 
+---
+
+### [Q-AGENT-DIFF-01] Protocol for Minimal, Surgical File Edits vs. Full-File Overwrites
+
+- **Status:** Pending User Input
+- **Target File to Update:** `AGENTS.md` (Section 1: Document-Based Collaboration Protocol)
+- **Context:**
+  When modifying existing files, agents should make minimal, surgical changes rather than rewriting or overwriting the entire file from scratch. Full-file overwrites pollute git diffs, obscure what actually changed, and force the user to process differences across an entire file when only a few lines or a single function needed modification.
+
+#### Dialogue
+
+**Devin:** To codify permanent instructions in `AGENTS.md` ensuring minimal, readable diffs:
+1. **Mandatory Surgical Edits:** Should agents be strictly forbidden from using whole-file overwrites on existing files, requiring them to use targeted line-level replacements?
+2. **Diff Minimization Standard:** When adding new functions, schemas, routes, or tests to existing files, should agents strictly localize edits to only the new/modified code without touching or reformatting unchanged surrounding lines?
+3. **Diff Explanation:** How should agents summarize targeted file modifications in their pre/post descriptions so you can review diffs with minimal cognitive load?
+
+**S:**  
+

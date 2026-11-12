@@ -7,6 +7,8 @@ WHY THIS FILE EXISTS:
     from UserOut so it can never be exposed in API responses).
 """
 
+from typing import Optional
+
 from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
 
@@ -16,6 +18,14 @@ class UserCreate(BaseModel):
     name: str = Field(..., min_length=1, description="Display name of the user")
     email: EmailStr = Field(..., description="Unique email address for the account")
     password: str = Field(..., min_length=4, description="User password")
+
+
+class UserUpdate(BaseModel):
+    """Payload for updating an existing user account (all fields optional)."""
+
+    name: Optional[str] = Field(None, min_length=1, description="Updated display name")
+    email: Optional[EmailStr] = Field(None, description="Updated email address")
+    password: Optional[str] = Field(None, min_length=4, description="Updated password to hash")
 
 
 class UserOut(BaseModel):
