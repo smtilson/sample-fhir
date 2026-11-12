@@ -224,5 +224,5 @@ docs/git/
 .devin/
 
 # Agent configuration and documentation files
-AGENTS.md
-docs/UPDATES_TO_AGENTS.md
+# AGENTS.md
+# docs/UPDATES_TO_AGENTS.md
