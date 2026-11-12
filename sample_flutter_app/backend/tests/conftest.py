@@ -21,6 +21,7 @@ from beanie import init_beanie
 from httpx import ASGITransport, AsyncClient
 
 from src.main import create_app
+from src.models.task import Task
 from src.models.user import User
 
 # -----------------------------------------------------------------------------
@@ -54,13 +55,14 @@ async def init_test_db() -> AsyncGenerator[None, None]:
 
     await init_beanie(
         database=test_db,
-        document_models=[User],
+        document_models=[User, Task],
     )
 
     yield
 
     # Teardown: ensure all documents are purged between test runs
     await User.delete_all()
+    await Task.delete_all()
 
 
 @pytest_asyncio.fixture
@@ -114,3 +116,47 @@ async def persisted_users(sample_users_raw_data: list[dict[str, Any]]) -> list[U
 async def persisted_user(persisted_users: list[User]) -> User:
     """Convenience fixture providing the first persisted User instance from persisted_users."""
     return persisted_users[0]
+
+
+# --- Task Layered Fixtures ---
+
+@pytest.fixture
+def sample_tasks_raw_data(persisted_user: User) -> list[dict[str, Any]]:
+    """Provide raw dictionary data for creating user-scoped tasks."""
+    user_id_str = str(persisted_user.id)
+    return [
+        {
+            "user_id": user_id_str,
+            "name": "Write unit tests for Task model",
+            "is_completed": False,
+            "metadata": {"priority": "high", "category": "development"},
+        },
+        {
+            "user_id": user_id_str,
+            "name": "Review PR and deploy",
+            "is_completed": True,
+            "metadata": {"priority": "medium"},
+        },
+        {
+            "user_id": user_id_str,
+            "name": "Update documentation",
+            "is_completed": False,
+            "metadata": {},
+        },
+    ]
+
+
+@pytest_asyncio.fixture
+async def persisted_tasks(sample_tasks_raw_data: list[dict[str, Any]]) -> list[Task]:
+    """Take raw task data dictionaries and insert Task documents into the in-memory database."""
+    tasks = [Task(**item) for item in sample_tasks_raw_data]
+    for task in tasks:
+        await task.insert()
+    return tasks
+
+
+@pytest_asyncio.fixture
+async def persisted_task(persisted_tasks: list[Task]) -> Task:
+    """Convenience fixture providing the first persisted Task instance from persisted_tasks."""
+    return persisted_tasks[0]
+

@@ -80,6 +80,17 @@ This document tracks unresolved technical issues, environmental friction points,
 
 ---
 
+### [FEATURE-DEMO-01] In-Memory / Ephemeral Demo Database for Local Server Probing
+
+- **Status:** Open / Backlog
+- **Context:**
+  Provide an in-memory demo database mode so the FastAPI backend can be launched locally and probed immediately with Postman, curl, or Swagger UI (`http://localhost:8000/docs`) without requiring a running MongoDB server daemon or Docker container.
+- **Proposed Implementation:**
+  - Add an environment mode (e.g. `APP_ENV=demo` or `DATABASE_URL=memory`) where FastAPI's lifespan startup hook connects Beanie to an in-memory `mongomock-motor` database.
+  - Optionally pre-seed the in-memory database with a couple of sample users and tasks so interactive probing works out of the box.
+
+---
+
 ## 4. Agent Operating Protocols & Planning Decisions
 
 ### [Q-AGENT-TICKETS-01] Protocol for Granular Ticket Authoring & Explicit Development Planning
@@ -126,4 +137,20 @@ This document tracks unresolved technical issues, environmental friction points,
 3. **Diff Explanation:** How should agents summarize targeted file modifications in their pre/post descriptions so you can review diffs with minimal cognitive load?
 
 **S:**  
+
+---
+
+### [TASK-AUDIT-01] Test Fixture Best Practices Audit & Ticket-Organized Codebase Review
+
+- **Status:** Open / Backlog
+- **Context:**
+  Audit all existing test files across `tests/unit/` and `tests/api/` to verify that fixtures are being utilized in strict alignment with best practices, rather than individual tests instantiating ad-hoc dictionaries, hardcoded payload strings, or inline classes.
+- **Tasks to Perform:**
+  1. **Fixture Usage Audit:** Verify that tests consume layered fixtures (`sample_users_raw_data`, `persisted_user`, `sample_tasks_raw_data`, `persisted_task`) consistently across both unit and API integration suites.
+  2. **Comprehensive Codebase Review Report:** Have a stronger model audit the current codebase and produce a structured audit report organized around existing tickets (`[SMP-EP0-TK01]` through `[SMP-EP1-TK04]`). The report should assess:
+     - Adherence to atomic single-responsibility testing principles.
+     - Separation of concerns between document models, schemas, and API routers.
+     - Error handling, status code mappings, and validation contracts.
+     - Concrete, ticket-aligned recommendations for refactoring and improvement.
+
 

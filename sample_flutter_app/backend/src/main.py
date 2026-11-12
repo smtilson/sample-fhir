@@ -16,6 +16,7 @@ WHY THIS FILE EXISTS:
 from fastapi import FastAPI
 
 from src.api.health import router as health_router
+from src.api.tasks import router as tasks_router
 from src.api.users import router as users_router
 
 
@@ -37,6 +38,7 @@ def create_app() -> FastAPI:
     # Register routers — one line per feature area.
     app.include_router(health_router)
     app.include_router(users_router)
+    app.include_router(tasks_router)
 
     return app
 
