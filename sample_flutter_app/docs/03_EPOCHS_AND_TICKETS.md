@@ -17,7 +17,7 @@ Tickets are organized into sequential **Epochs** reflecting the finalized archit
 | Epoch | Title | Deliverables | Status |
 | :--- | :--- | :--- | :--- |
 | **Epoch 0** | Tooling, Scaffolding & TDD Baseline | FastAPI + Beanie setup, Flutter skeleton, Docker-Compose, pytest & flutter_test | Active Baseline |
-| **Epoch 1** | Minimal Accounts & Simple Task Backend | Streamlined User model (`name`, `email`, bcrypt `password`), user-scoped simple Task model (`name`, `is_completed`, `metadata`), FastAPI CRUD routes | Active (Fast-Track per `[Q-SAMPLE-REORG-01]`) |
+| **Epoch 1** | Minimal Accounts & Simple Task Backend | Atomic User testing (Model & Security, Schemas, API Endpoints), user-scoped simple Task model, FastAPI CRUD routes | Active (Fast-Track per `[Q-SAMPLE-REORG-01]`) |
 | **Epoch 2** | Flutter UI & FastAPI Synchronization | Flutter API client, Task List Screen with explicit checkboxes, task creation form, live backend sync | Active (Fast-Track per `[Q-SAMPLE-REORG-01]`) |
 | **Epoch 3** | Authentication & Token Hardening | Password hashing verification, JWT access/refresh tokens, OAuth2 flows, secure storage, Cognito parity | Deferred per `[Q-SAMPLE-REORG-01]` |
 | **Epoch 4** | Incremental FHIR Task Evolution | FHIR status state machine, `executionPeriod`, HL7 FHIR R4 Task JSON export serializer | Deferred per `[Q-SAMPLE-REORG-01]` |
@@ -63,31 +63,81 @@ Tickets are organized into sequential **Epochs** reflecting the finalized archit
 
 ## Epoch 1: Minimal Accounts & Simple Task Backend
 
-*(Reorganized and streamlined per user decision `[Q-SAMPLE-REORG-01]` to prioritize immediate Flutter UI development and FastAPI sync. Complex JWT auth and multi-step schemas are deferred to Epoch 3).*
+*(Reorganized and streamlined per user decision `[Q-SAMPLE-REORG-01]` and testing standards in `AGENTS.md`. Decomposes the User subsystem into three distinct atomic testing tiers: Document Model & Security, Transport Schemas, and API Endpoints, followed by Simple Tasks).*
 
-### [SMP-EP1-TK01] Minimal User Document Model & Creation Endpoint
-*(Updated per `[Q-SAMPLE-REORG-01]` — simplified to name, email, and bcrypt-hashed password)*
-- **Summary:** Implement the `User` Beanie document model with `name`, `email`, and bcrypt-hashed `password`, plus user creation and retrieval endpoints.
+### [SMP-EP1-TK01] User Document Model & Security Unit Testing
+*(Updated per `[Q-SAMPLE-REORG-01]` and atomic testing guidelines)*
+- **Summary:** Implement and unit test the `User` Beanie document model with `name`, `email` (unique index), and bcrypt `password`, plus native bcrypt password hashing utilities.
 - **Referenced Questions:** `[Q-SAMPLE-AUTH-01]`, `[Q-SAMPLE-REORG-01]` (Resolved: Simple bcrypt hash, minimal model).
 - **Tasks & Acceptance Criteria:**
-  1. Implement `User` Beanie document model with fields:
+  1. Implement `User` Beanie document model in `src/models/user.py`:
      - `id`: Pydantic / Mongo ObjectId
      - `name`: String
-     - `email`: String (indexed, unique)
+     - `email`: Indexed(str, unique=True)
      - `password`: String (bcrypt hash)
-  2. Implement utility functions `hash_password(raw: str) -> str` and `verify_password(raw: str, hashed: str) -> bool`.
-  3. Create endpoints:
-     - `POST /api/v1/users`: Creates a new user (returns 201 Created; returns 400 on duplicate email).
-     - `GET /api/v1/users`: Returns list of users (for Flutter user-selection).
-     - `GET /api/v1/users/{id}`: Returns user profile by ID.
-  4. Write failing unit & API tests verifying creation, duplicate prevention, and bcrypt hashing.
-- **TDD Test Spec:** `pytest tests/api/test_users.py` asserts 201 Created, duplicate email rejection (400), and password hash verification.
-- **Devin re-Cognito:** In AWS Cognito, you do not manage a `User` database document, user creation routes, or password hashes yourself. Cognito User Pools store credentials and handle bcrypt/Argon2 hashing securely behind AWS-managed KMS encryption. User creation maps directly to the Cognito `SignUp` API or `AdminCreateUser`. The application only stores the Cognito `sub` (User UUID) as a foreign key on tasks.
+     - `Settings`: collection name `"users"`
+  2. Implement utility functions `hash_password()` and `verify_password()` in `src/core/security.py` using direct `bcrypt`.
+  3. Provide layered test fixtures in `tests/conftest.py`: raw data list (`sample_users_raw_data`) and persisted instance (`persisted_user`).
+  4. Write atomic unit tests in `tests/unit/test_user_model.py`:
+     - Insertion assigns MongoDB ObjectId and increments count.
+     - Document retrieval by ID and by unique email.
+     - Querying non-existent ID or email returns `None`.
+     - Inserting duplicate email raises `pymongo.errors.DuplicateKeyError` directly at the database layer.
+     - Missing required fields (`name`, `email`, `password`) raise Pydantic `ValidationError`.
+     - Document update (`.set()`) and deletion (`.delete()`).
+  5. Write unit tests in `tests/unit/test_security.py` verifying bcrypt salting and password verification.
+- **TDD Test Spec:** `pytest tests/unit/test_user_model.py tests/unit/test_security.py` passes 100%.
 
 ---
 
-### [SMP-EP1-TK02] User-Scoped Simple Task Model & CRUD Endpoints
-*(Created per `[Q-SAMPLE-REORG-01]` — streamlines and merges former Epoch 2 task models for immediate Flutter sync)*
+### [SMP-EP1-TK02] User Transport Schemas & Validation Unit Testing
+*(Created per atomic testing guidelines in `AGENTS.md`)*
+- **Summary:** Implement and unit test Pydantic transport DTO schemas (`UserCreate`, `UserOut`) ensuring input formatting constraints, email validation, and strict credential shielding in isolation from the database and HTTP transport.
+- **Referenced Questions:** `[Q-SAMPLE-REORG-01]`.
+- **Tasks & Acceptance Criteria:**
+  1. Implement `UserCreate(BaseModel)` in `src/schemas/user.py`:
+     - `name`: String (min length 1)
+     - `email`: `EmailStr` (validates standard email formatting)
+     - `password`: String (min length 4)
+  2. Implement `UserOut(BaseModel)` in `src/schemas/user.py`:
+     - `id`: String (hex identifier)
+     - `name`: String
+     - `email`: String
+     - `model_config = ConfigDict(from_attributes=True)`
+     - Strictly omits `password` and `hashed_password` to prevent credential exposure.
+  3. Write isolated unit tests in `tests/unit/test_user_schemas.py`:
+     - Valid payload successfully parses into `UserCreate`.
+     - Invalid email formats (e.g. `"not-an-email"`, `"missing@domain"`) raise `pydantic.ValidationError`.
+     - Empty string `name` or short `password` raises `pydantic.ValidationError`.
+     - `UserOut` maps from attributes (`from_attributes=True`).
+     - Assert that neither `password` nor `hashed_password` exists in `UserOut.model_fields` or `.model_dump()`.
+- **TDD Test Spec:** `pytest tests/unit/test_user_schemas.py` passes 100%.
+
+---
+
+### [SMP-EP1-TK03] User API Endpoints & Route Wire-up Integration
+*(Created per atomic testing guidelines in `AGENTS.md`)*
+- **Summary:** Build and integration-test the FastAPI user endpoints, wire them into `create_app()`, and verify HTTP status codes and error mappings.
+- **Referenced Questions:** `[Q-SAMPLE-AUTH-01]`, `[Q-SAMPLE-REORG-01]`.
+- **Tasks & Acceptance Criteria:**
+  1. Implement `src/api/users.py` router:
+     - `POST /api/v1/users`: Validates payload, checks if email is registered (raises `HTTPException(400, "Email already registered")`), hashes password, saves user, returns 201 Created with `UserOut`.
+     - `GET /api/v1/users`: Returns list of existing users as `list[UserOut]` for the active-user switcher.
+     - `GET /api/v1/users/{id}`: Returns user by ID, or raises 404 Not Found.
+  2. Register `users_router` on `create_app()` in `src/main.py`.
+  3. Write HTTP integration tests in `tests/api/test_users.py`:
+     - `POST /api/v1/users`: Returns 201 Created with valid `UserOut`, verifies password is never returned in response, and verifies password in DB is bcrypt-hashed.
+     - Duplicate email registration returns clean HTTP 400 Bad Request with `"Email already registered"`.
+     - Malformed input payload returns HTTP 422 Unprocessable Entity.
+     - `GET /api/v1/users`: Returns list of registered users.
+     - `GET /api/v1/users/{id}`: Returns 200 for valid ID and 404 for unknown/malformed ID.
+- **TDD Test Spec:** `pytest tests/api/test_users.py` passes 100%.
+- **Devin re-Cognito:** In AWS Cognito, user creation is performed via the Cognito IDP API (`SignUp` or `AdminCreateUser`). Your FastAPI backend does not need user creation endpoints or password hashing routines; instead, Flutter calls Cognito directly, and FastAPI acts as a Resource Server validating incoming Cognito JWT bearer tokens.
+
+---
+
+### [SMP-EP1-TK04] User-Scoped Simple Task Model & CRUD Endpoints
+*(Renumbered from former TK02 per user decision `[Q-SAMPLE-REORG-01]`)*
 - **Summary:** Implement a lightweight, user-scoped Task document model with `name`, completion status, and metadata, backed by complete FastAPI CRUD routes.
 - **Referenced Questions:** `[Q-SAMPLE-REORG-01]` (Resolved: Scoped to user, simple fields: name, is_completed, metadata).
 - **Tasks & Acceptance Criteria:**

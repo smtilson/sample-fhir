@@ -67,10 +67,26 @@ Per user decision `[Q-SAMPLE-REORG-01]`, the development plan is reorganized to 
 
 ### 2.1 Backend TDD (Python & FastAPI)
 
-Every backend feature follows the standard TDD cycle:
-1. **Red:** Write a failing test in `tests/api/` or `tests/unit/`.
-2. **Green:** Implement the minimum FastAPI router, Beanie model, or service logic to pass.
-3. **Refactor:** Clean up code, add typing annotations, ensure `ruff` and `mypy` pass.
+Every backend feature follows an atomic, three-tier testing progression where each layer is tested in isolation before moving up the stack:
+
+#### The Three-Tier Backend Testing Hierarchy:
+
+1. **Tier 1 — Document Model & Database CRUD (`tests/unit/test_*_model.py`):**
+   - Tests Beanie ODM document models directly against an in-memory database (`mongomock-motor`) without HTTP routing or FastAPI middleware.
+   - Verifies single-operation CRUD: inserting records, querying by ID, querying by index, updating fields, and deleting records.
+   - Verifies database-level constraint enforcement: asserts that MongoDB unique indexes raise `pymongo.errors.DuplicateKeyError` on duplicate key inserts.
+   - Verifies document instantiation validation: asserts that missing required fields raise Pydantic `ValidationError`.
+
+2. **Tier 2 — Transport Schemas & Validation (`tests/unit/test_*_schemas.py`):**
+   - Tests Pydantic DTO (Data Transfer Object) schemas in complete isolation from the database and web framework.
+   - Input validation: verifies `EmailStr` format validation, string constraints, and rejection of malformed or empty payloads.
+   - Public contract & credential shielding: verifies output schemas (e.g., `UserOut`) correctly map from attributes and strictly omit sensitive fields (passwords, hashes) from schema definitions and serialization dictionaries.
+
+3. **Tier 3 — Transport & API Route Integration (`tests/api/test_*.py`):**
+   - Tests HTTP route handlers and middleware using `httpx.AsyncClient` with `ASGITransport`.
+   - Verifies application wire-up: routers registered on `create_app()` and exposed in OpenAPI documentation.
+   - Verifies HTTP status codes and contracts: `201 Created`, `200 OK`, `404 Not Found`, `422 Unprocessable Entity`.
+   - Verifies error mapping: confirms that endpoints catch database-level constraints and map them to clean client responses (e.g., converting duplicate key violations into `HTTP 400 Bad Request`).
 
 #### Key Backend Testing Techniques:
 - **Asynchronous Testing:** Using `pytest-asyncio` with `httpx.AsyncClient` allows testing async endpoints in memory without spinning up a live network socket:

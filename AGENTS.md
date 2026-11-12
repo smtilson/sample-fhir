@@ -100,6 +100,17 @@ The user develops using **Windows Subsystem for Linux (WSL)**, where the Python 
      - The agent is allowed to run non-mutating test commands via WSL (`pytest`, `flutter test`).
      - **CRITICAL:** If tests fail, the agent **MUST STOP IMMEDIATELY**.
      - Agents are **strictly forbidden** from entering an autonomous loop of: *fail test -> edit code -> re-test -> edit code*. Present the failure output to the user so the user maintains full visibility of the codebase.
+   - **Updated Rule:** **Atomic Single-Responsibility Tests:**
+     - Each unit test must verify exactly **ONE** operation, behavioral contract, or failure mode.
+     - **Strictly forbid multi-operation bundling:** Never combine `create` and `read` into a single test, and never combine `update` and `delete` into a single test. If a test fails, the failure report must pinpoint the exact operation that broke without ambiguity.
+     - **Test Database CRUD First:** Verify document-level CRUD operations, field validation, and database constraints (such as unique indexes raising `pymongo.errors.DuplicateKeyError`) directly at the model/database level in `tests/unit/` *before* testing HTTP API transport routes in `tests/api/`.
+
+   - **Updated Rule:** **Layered Fixtures Architecture:**
+     - Test data fixtures must be organized in clean hierarchical layers in `conftest.py`:
+       - **Layer 1 (Raw Data):** A fixture returning pure data (e.g., a list of dictionaries containing raw model attributes) without database side-effects.
+       - **Layer 2 (Persisted Instances):** A fixture that accepts the raw data fixture, instantiates the document models, inserts them into the in-memory database, and yields the persisted instances.
+       - **Layer 3 (Tests):** Atomic tests declare and consume only the specific fixture layer they need (e.g. read/update/delete tests consume the persisted fixture; creation tests consume the raw data fixture).
+
    - **Updated Rule:** **Mocking Boundaries:** Unit and repository tests must strictly use in-memory mocks (`mongomock-motor`, in-memory test doubles) set up via fixtures so tests run self-contained and offline. Integration database requirements are deferred.
    - Python Backend: `pytest`, `pytest-asyncio`, `pytest-cov`, `pytest-mock`, `httpx` / `TestClient`.
    - Flutter Frontend: `flutter_test` (unit tests and headless `testWidgets` with `WidgetTester`), `mocktail` for API mocks.
