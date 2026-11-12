@@ -222,7 +222,3 @@ __marimo__/
 # Agent draft commit files and local caches
 docs/git/
 .devin/
-
-# Agent configuration and documentation files
-AGENTS.md
-docs/UPDATES_TO_AGENTS.md

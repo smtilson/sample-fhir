@@ -72,14 +72,21 @@ The user develops using **Windows Subsystem for Linux (WSL)**, where the Python 
   ```bash
   wsl -e bash -lc "cd /mnt/c/Users/seant/OneDrive/Desktop/main_repos/sample-fhir && source <venv-path>/bin/activate && pytest"
   ```
-- **Updated Rule:** **Pre-Execution Command Breakdown:**
-  - Before running any terminal command, the agent must provide a clear, verbose description explaining exactly what the command does, why it is necessary, and what each parameter/flag accomplishes.
-  - If multiple commands are being executed, provide an individual, separate description for each command rather than a bundled or vague summary.
-- **Updated Rule:** **Post-Execution Structured Analysis:**
-  - Immediately after any command finishes executing, the agent must provide a structured summary containing:
+- **Updated Rule:** **Strict Single-Command Execution (No Batching):**
+  - Agents are **strictly forbidden** from batching, chaining, or executing multiple terminal commands in a single turn.
+  - Run exactly **ONE command at a time** so the user has full oversight over every individual operation.
+- **Updated Rule:** **Pre-Execution Explanation First:**
+  - Before any terminal command is called, the agent must output a clear, verbose description in the chat text *first*, explaining:
+    1. The exact command to be run.
+    2. Why it is necessary.
+    3. What every parameter/flag accomplishes.
+  - This ensures the user reads the full explanation before seeing or clicking the "Allow" button.
+- **Updated Rule:** **Mandatory Interleaved Reporting (Before Any Next Command):**
+  - Immediately after a command finishes executing, the agent must render the **Post-Execution Structured Analysis** in the chat response:
     1. **Actual Result:** What the command produced or returned.
     2. **Outcome Assessment:** Whether this was the expected/desired result.
-    3. **Diagnostic Analysis (if unexpected or failure):** If the result was not what was expected, explain potential underlying reasons and propose concrete solutions or next steps.
+    3. **Diagnostic Analysis (if unexpected or failure):** Potential causes and concrete solutions.
+  - The agent must **NEVER** issue, propose, or ask approval for a subsequent command until the previous command's post-execution report has been displayed to the user.
 
 ---
 
