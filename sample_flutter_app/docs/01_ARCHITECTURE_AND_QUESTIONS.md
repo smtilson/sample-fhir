@@ -136,6 +136,18 @@ The sample app requires accounts so each user has their own private tasks and ca
 
 **S:** For this sample app, I want self contained. I do want you to make comments along the way referencing how this would work with Cognito. Sign those comments "**Devin re-Cognito:** [comment]".
 
+#### [Q-SAMPLE-REORG-01] Streamlined Early Roadmap: Fast-Tracking Flutter UI & FastAPI Synchronization
+**Devin:** To get to hands-on Flutter learning and frontend-backend synchronization as quickly as possible, should we reorganize the early roadmap to establish minimal accounts (name, email, password) and simple user-scoped tasks (name, completion status, metadata), moving Flutter UI and API sync immediately into Epoch 2 while deferring complex JWT token flows, FHIR lifecycle state machines, and ML exports to later epochs?
+- **Option A: Full Auth & Deep Schema First** (Build complete OAuth2 password flow, JWT access/refresh tokens, and full task schema before starting Flutter).
+- **Option B: Streamlined Account/Task & Fast-Track Flutter Sync** (Recommended: Simple user creation with bcrypt hash, simple user-scoped task model, immediately followed by Flutter UI and live API sync. Heavy auth and FHIR deferred to later epochs).
+
+**S:** I want to change the development plan right now to get to understand flutter and syncing it with fastapi right now. So I want to reorganize things so that the most basic accounts are set up, don't worry about serious auth issues. just user creation, that model should just have a name, email, and password. then there should be a simple model for tasks with simply the name of the task, completion status, and metadata. I then want to pivot to having the flutter UI be able to display this. For password storage, use simple bcrypt hash; for task association, keep tasks scoped to user.
+
+**Devin:** Understood. We have reorganized the roadmap accordingly:
+1. **Epoch 1:** Minimal User model (`name`, `email`, bcrypt-hashed `password`) and simple user-scoped Task model (`user_id`, `name`, `is_completed`, `metadata`) with straightforward FastAPI CRUD endpoints.
+2. **Epoch 2:** Flutter Frontend & FastAPI Sync (HTTP client, Task List UI with checkboxes, task creation form, and live sync).
+3. **Subsequent Epochs:** Heavy auth (JWT/OAuth2/tokens), FHIR Task state machine evolution, ML bulk data export, and multi-platform deployment are preserved and deferred to Epochs 3 through 6.
+
 ---
 
 ## 5. Flutter UI/UX Design Principles
@@ -182,5 +194,6 @@ Since you are completely new to Flutter, creating an app that follows modern Flu
 - `[Q-SAMPLE-FHIR-01]`: **Resolved: Hybrid Incremental Approach**. Start with a lightweight, testable Todo schema for fast CRUD & frontend progress, then incrementally add FHIR `Task` concepts and serialization across later tickets.
 - `[Q-SAMPLE-ML-01]`: **Resolved: Clean ML Bulk Export Endpoints**. No ML models/NLP inside the app; build dedicated, authorized bulk data export endpoints (`/api/v1/ml/export/tasks`) returning structured NDJSON.
 - `[Q-SAMPLE-AUTH-01]`: **Resolved: Self-contained FastAPI JWT**. Use self-contained JWT for local development and testing, accompanied by `**Devin re-Cognito:**` annotations in docs and tickets explaining the Cognito equivalent.
+- `[Q-SAMPLE-REORG-01]`: **Resolved: Fast-Track Flutter UI & FastAPI Sync**. Streamline Epoch 1 to minimal accounts (`name`, `email`, bcrypt `password`) and simple user-scoped tasks (`name`, `is_completed`, `metadata`); move Flutter UI & API sync directly to Epoch 2; defer advanced auth, FHIR evolution, and ML export to later epochs.
 - `[Q-SAMPLE-UI-01]`: **Resolved: Multi-Platform Phased Rollout (No Swipes)**. Phased priority: 1. Browser (Flutter Web) -> 2. Mobile (Android/iOS) -> 3. Desktop (Windows). No swipe gestures; use explicit checkboxes, action buttons, and confirmation dialogs.
 - `[Q-SAMPLE-AWS-01]`: **Resolved: Local Docker-Compose First**. Local development and testing via `docker-compose`, with AWS deployment scripts (AWS App Runner / DocumentDB / S3) ready for cloud deployment when needed.

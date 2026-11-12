@@ -1,0 +1,79 @@
+# =============================================================================
+# pyproject.toml — Sample Todo Backend (SMP-EP0-TK01)
+#
+# WHY THIS FILE EXISTS:
+#   Modern Python packaging and tool configuration live here (PEP 621).
+#   It declares:
+#     1. Runtime dependencies (FastAPI, Beanie, Motor, etc.)
+#     2. Dev/test dependencies (pytest stack, ruff, mypy)
+#     3. pytest configuration so `src/` is importable without sys.path hacks
+#
+# NOTE: The repo-root `requirements.txt` is the environment-level dependency
+# list. This file is the *package-level* declaration for the backend itself,
+# which matters when the backend is built/installed as a package (e.g., in a
+# Docker image or CI pipeline).
+# =============================================================================
+
+[build-system]
+# setuptools is the build backend so `pip install .` / `pip install -e .`
+# know how to package the code under src/.
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sample-todo-backend"
+version = "0.1.0"
+description = "FastAPI backend for the Sample Todo app — Beanie ODM over MongoDB/DocumentDB"
+readme = "README.md"
+requires-python = ">=3.10"
+# --- Runtime dependencies (subset of root requirements.txt) -----------------
+# Auth deps (passlib, bcrypt, pyjwt) are included now because the very next
+# tickets (SMP-EP0-TK02+) add self-contained JWT auth per the architecture doc.
+dependencies = [
+    "fastapi>=0.110.0,<1.0.0",
+    "uvicorn[standard]>=0.28.0,<1.0.0",
+    "pydantic>=2.6.0,<3.0.0",
+    "pydantic-settings>=2.2.0,<3.0.0",
+    "beanie>=1.25.0,<2.0.0",      # ODM decision: [Q-SAMPLE-ODM-01]
+    "motor>=3.3.0,<4.0.0",        # async MongoDB driver Beanie builds on
+    "passlib[bcrypt]>=1.7.4",     # password hashing (upcoming auth ticket)
+    "bcrypt>=4.1.0,<5.0.0",
+    "pyjwt[crypto]>=2.8.0,<3.0.0", # JWT signing (upcoming auth ticket)
+    "httpx>=0.27.0,<1.0.0",       # also used at runtime for outbound calls later
+]
+
+[project.optional-dependencies]
+# Dev-only tooling: install with `pip install -e ".[dev]"`.
+# Kept separate so production images stay lean.
+dev = [
+    "pytest>=8.0.0",
+    "pytest-asyncio>=0.23.0",   # lets pytest run async test functions/fixtures
+    "pytest-cov>=4.1.0",        # coverage reporting (required by ticket)
+    "pytest-mock>=3.12.0",      # thin wrapper over unittest.mock
+    "mongomock-motor>=0.0.29",  # in-memory Motor stand-in for unit tests
+    "ruff>=0.3.0",              # fast linter/formatter
+    "mypy>=1.9.0",              # static type checking
+]
+
+# -----------------------------------------------------------------------------
+# setuptools package discovery: the importable code lives under src/.
+# This is the standard "src layout" — it prevents accidentally importing the
+# package from the repo checkout instead of the installed/built artifact.
+# -----------------------------------------------------------------------------
+[tool.setuptools.packages.find]
+where = ["src"]
+
+# -----------------------------------------------------------------------------
+# pytest configuration
+#   testpaths   — only collect tests from tests/ (keeps runs fast & focused)
+#   pythonpath  — puts src/ on sys.path so `from src.main import ...` works in
+#                 tests WITHOUT installing the package or adding sys.path hacks
+#   asyncio_mode = "auto" — pytest-asyncio treats every `async def` test and
+#                 async fixture as asyncio automatically, so tests don't need
+#                 an explicit @pytest.mark.asyncio decorator.
+# -----------------------------------------------------------------------------
+[tool.pytest.ini_options]
+minversion = "8.0"
+testpaths = ["tests"]
+pythonpath = ["src"]
+asyncio_mode = "auto"

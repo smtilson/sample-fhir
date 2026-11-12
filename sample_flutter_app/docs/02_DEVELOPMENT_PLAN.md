@@ -50,6 +50,21 @@ sample_flutter_app/
 
 ## 2. Test-Driven Development (TDD) Strategy
 
+### 2.0 Roadmap Evolution & Fast-Track Sync (`[Q-SAMPLE-REORG-01]`)
+
+Per user decision `[Q-SAMPLE-REORG-01]`, the development plan is reorganized to prioritize understanding Flutter and synchronizing it with the FastAPI backend immediately:
+- **Phase 1 (Active Focus — Fast-Track Sync):**
+  1. **Minimal Accounts:** User creation with `name`, `email`, and simple bcrypt-hashed `password`. No complex JWT token or OAuth2 infrastructure required in this initial stage.
+  2. **Simple Tasks:** User-scoped task model with `name`, `is_completed` (completion status), `metadata` (JSON/dict), and `user_id`.
+  3. **Flutter UI & Live Sync:** Flutter frontend connecting to FastAPI endpoints, displaying user-scoped tasks, toggling completion with checkboxes, and submitting new tasks.
+- **Phase 2 (Deferred Hardening & Standards Alignment):**
+  1. Advanced JWT tokens, refresh tokens, and AWS Cognito architecture mapping.
+  2. Incremental FHIR Task lifecycle state machine and R4 JSON export.
+  3. Authorized ML bulk data export and analytics.
+  4. Multi-platform expansion and AWS cloud deployment.
+
+---
+
 ### 2.1 Backend TDD (Python & FastAPI)
 
 Every backend feature follows the standard TDD cycle:
