@@ -17,7 +17,8 @@ Tickets are organized into sequential **Epochs** reflecting the finalized archit
 | Epoch | Title | Deliverables | Status |
 | :--- | :--- | :--- | :--- |
 | **Epoch 0** | Tooling, Scaffolding & TDD Baseline | FastAPI + Beanie setup, Flutter skeleton, Docker-Compose, pytest & flutter_test | Active Baseline |
-| **Epoch 1** | Minimal Accounts & Simple Task Backend | Atomic User testing (Model & Security, Schemas, API Endpoints), user-scoped simple Task model, FastAPI CRUD routes | Active (Fast-Track per `[Q-SAMPLE-REORG-01]`) |
+| **Epoch 1** | Minimal Accounts & Simple Task Backend | Atomic User testing (Model & Security, Schemas, API Endpoints), user-scoped simple Task CRUD, In-Memory Demo Database & Seeding | Active (Fast-Track per `[Q-SAMPLE-REORG-01]`) |
+| **Epoch 1.5** | Minimal Flutter-to-FastAPI Connectivity Spike | Backend CORS middleware, Flutter scaffold, minimal ApiClient (`/health` & `/users`), and connectivity verification UI | Active (Spike per User Decision) |
 | **Epoch 2** | Flutter UI & FastAPI Synchronization | Flutter API client, Task List Screen with explicit checkboxes, task creation form, live backend sync | Active (Fast-Track per `[Q-SAMPLE-REORG-01]`) |
 | **Epoch 3** | Authentication & Token Hardening | Password hashing verification, JWT access/refresh tokens, OAuth2 flows, secure storage, Cognito parity | Deferred per `[Q-SAMPLE-REORG-01]` |
 | **Epoch 4** | Incremental FHIR Task Evolution | FHIR status state machine, `executionPeriod`, HL7 FHIR R4 Task JSON export serializer | Deferred per `[Q-SAMPLE-REORG-01]` |
@@ -158,6 +159,26 @@ Tickets are organized into sequential **Epochs** reflecting the finalized archit
 
 ---
 
+### [SMP-EP1-TK05] In-Memory Demo Database & Lifespan Startup Seeding
+- **Summary:** Configure the FastAPI application lifecycle (lifespan handler) to support an in-memory/ephemeral demo database mode (`APP_ENV=demo` or `DATABASE_URL=memory`) using `mongomock-motor`, pre-seeded with sample users and tasks so the app can be launched locally (`uvicorn src.main:app --reload`) and probed interactively via Postman, curl, or Swagger UI (`http://localhost:8000/docs`) without a running MongoDB daemon.
+- **Referenced Decisions:** `[FEATURE-DEMO-01]` (from `docs/PENDING_ISSUES_AND_QUESTIONS.md`).
+- **Tasks & Acceptance Criteria:**
+  1. Create database initialization helper in `src/core/database.py`:
+     - Inspects environment variables (`DATABASE_URL`, `APP_ENV`).
+     - If `APP_ENV == "demo"` or `DATABASE_URL == "memory"`, connects via `mongomock_motor.AsyncMongoMockClient()`.
+     - Otherwise, connects via `motor.motor_asyncio.AsyncIOMotorClient(DATABASE_URL)`.
+     - Initializes Beanie with `document_models=[User, Task]`.
+  2. Implement lifespan startup hook in `src/main.py`:
+     - Initializes database on application startup.
+     - When running in demo mode, seeds initial demo data (e.g. Alice and Bob with sample tasks) if the database is empty.
+  3. Create integration verification test in `tests/api/test_demo_mode.py`:
+     - Verifies app initializes with pre-seeded demo records.
+     - Confirms `GET /api/v1/users` and `GET /api/v1/tasks` return pre-seeded items out of the box.
+- **TDD Test Spec:** `pytest tests/api/test_demo_mode.py` asserts demo users and tasks are accessible over HTTP on initial launch.
+- **Devin re-Cognito:** In AWS cloud deployment, Beanie connects via TLS to an Amazon DocumentDB cluster, and identity management is handled by AWS Cognito. The local in-memory demo database mode is strictly an ergonomic development and testing tool for Postman probing and early Flutter UI integration before standing up cloud infrastructure.
+
+---
+
 ### ~~[SMP-EP1-TK02-ORIG] FastAPI Authentication & Token Endpoints~~
 *Superseded & Deferred to `[SMP-EP3-TK01-AUTH]` per user decision in `[Q-SAMPLE-REORG-01]`: Full OAuth2 password flow and JWT token generation deferred to allow immediate Flutter sync.*
 ~~- **Summary:** Build endpoints for user registration, login (OAuth2 password flow), and current user info.~~
@@ -176,6 +197,81 @@ Tickets are organized into sequential **Epochs** reflecting the finalized archit
 ### ~~[SMP-EP1-TK04-ORIG] Flutter Login & Registration Screens (Browser-First)~~
 *Superseded & Deferred to `[SMP-EP3-TK03-AUTH]` per user decision in `[Q-SAMPLE-REORG-01]`: Replaced in early stage by simple User Selection and direct Task List Screen in Epoch 2.*
 ~~- **Summary:** Build the user interface for Login and Registration with form validation and widget tests, verified in Flutter Web.~~
+
+---
+
+## Epoch 1.5: Minimal Flutter-to-FastAPI Connectivity Spike
+
+*(Created per user decision to establish the minimal end-to-end connectivity baseline between the Flutter frontend and the FastAPI backend before building out full task management screens).*
+
+### [SMP-EP1.5-TK01] Backend CORS Middleware Integration
+- **Summary:** Configure FastAPI `CORSMiddleware` in `src/main.py` allowing cross-origin requests from web clients (`http://localhost:*`, `http://127.0.0.1:*`) so Flutter Web requests are not blocked by browser CORS security.
+- **Referenced Decisions:** `[AUDIT-APP-02]` (from `docs/REPORT_2026-11-14_1428.md`).
+- **Tasks & Acceptance Criteria:**
+  1. Add `CORSMiddleware` to `create_app()` in `src/main.py`:
+     - Allow local origins: `http://localhost:*`, `http://127.0.0.1:*` (configurable via `Settings.cors_origins`).
+     - Allow methods `["*"]` and headers `["*"]`.
+  2. Author integration test in `tests/api/test_health.py` (or dedicated `test_cors.py`):
+     - Send preflight `OPTIONS /api/v1/health` with `Origin: http://localhost:3000` and `Access-Control-Request-Method: GET`.
+     - Assert response status is 200 OK and contains `access-control-allow-origin: http://localhost:3000`.
+- **TDD Test Spec:** `pytest tests/api/test_health.py` asserts CORS preflight and headers succeed.
+
+---
+
+### [SMP-EP1.5-TK02] Flutter Frontend Scaffolding & Headless Test Baseline
+*(Incorporates baseline from `[SMP-EP0-TK02]`)*
+- **Summary:** Initialize the Flutter frontend project at `sample_flutter_app/frontend/` using Flutter in WSL (`/home/smtilson/develop/flutter/bin/flutter`), configure dependencies in `pubspec.yaml`, and verify headless test execution (`flutter test`).
+- **Referenced Decisions:** `[AUDIT-ROAD-01]` (from `docs/REPORT_2026-11-14_1428.md`).
+- **Tasks & Acceptance Criteria:**
+  1. Initialize Flutter application:
+     ```bash
+     cd sample_flutter_app && /home/smtilson/develop/flutter/bin/flutter create frontend --org com.sample.todo
+     ```
+  2. Add dependencies to `frontend/pubspec.yaml`:
+     - `http: ^1.2.0`
+     - dev dependencies: `mocktail: ^1.0.3`
+  3. Author smoke test in `frontend/test/smoke_test.dart` asserting that the test environment initializes cleanly.
+  4. Run `flutter test` via WSL to confirm 100% green headless test execution without requiring an emulator.
+- **TDD Test Spec:** `flutter test` executes and passes 100%.
+
+---
+
+### [SMP-EP1.5-TK03] Minimal Dart ApiClient for Health & Users Endpoints
+- **Summary:** Implement a lightweight `ApiClient` in `frontend/lib/services/api_client.dart` with methods to check liveness (`GET /api/v1/health`) and fetch pre-seeded demo users (`GET /api/v1/users`).
+- **Referenced Questions:** `[Q-SAMPLE-REORG-01]`, `[AUDIT-APP-02]`.
+- **Tasks & Acceptance Criteria:**
+  1. Implement `User` model in `frontend/lib/models/user.dart`:
+     - Fields: `String id`, `String name`, `String email`.
+     - Factory constructor: `User.fromJson(Map<String, dynamic> json)`.
+  2. Implement `ApiClient` in `frontend/lib/services/api_client.dart`:
+     - Configurable `baseUrl` (defaults to `http://127.0.0.1:8000`).
+     - `Future<bool> checkHealth()`: sends `GET /api/v1/health`, returns `true` if `status == "ok"`.
+     - `Future<List<User>> fetchUsers()`: sends `GET /api/v1/users`, parses and returns list of `User`.
+  3. Author unit tests in `frontend/test/unit/api_client_test.dart` using `mocktail` (or mock HTTP client):
+     - Assert `checkHealth()` returns `true` on HTTP 200 `{"status": "ok"}` and `false` on error.
+     - Assert `fetchUsers()` parses JSON list into `List<User>`.
+- **TDD Test Spec:** `flutter test test/unit/api_client_test.dart` passes 100%.
+
+---
+
+### [SMP-EP1.5-TK04] Minimal Connectivity UI Screen & Live Backend Verification
+- **Summary:** Build a minimal, functional Flutter UI in `frontend/lib/main.dart` with status indicators and buttons to ping `/api/v1/health` and fetch/display pre-seeded demo users (Alice & Bob) from the running FastAPI backend.
+- **Referenced Questions:** `[Q-SAMPLE-UI-01]`.
+- **Tasks & Acceptance Criteria:**
+  1. Build minimal Material 3 UI in `frontend/lib/main.dart`:
+     - App bar with title "FastAPI + Flutter Spike".
+     - Status card showing connection state: "Status: Unknown / Connected / Error".
+     - Action button "Ping Backend Health": invokes `apiClient.checkHealth()` and updates status banner.
+     - Action button "Fetch Demo Users": invokes `apiClient.fetchUsers()` and renders user names/emails in a list.
+  2. Author widget test in `frontend/test/widgets/connectivity_screen_test.dart`:
+     - Mounts connectivity screen with mocked `ApiClient`.
+     - Simulates tapping "Ping Backend Health" and verifies status text updates.
+     - Simulates tapping "Fetch Demo Users" and verifies user list renders Alice & Bob.
+  3. Interactive Live Verification:
+     - Launch backend: `uvicorn src.main:app --reload --port 8000`.
+     - Launch Flutter Web client: `flutter run -d chrome --web-port 3000`.
+     - Click buttons in browser and verify real-time response from FastAPI demo database.
+- **TDD Test Spec:** `flutter test test/widgets/connectivity_screen_test.dart` passes 100%.
 
 ---
 

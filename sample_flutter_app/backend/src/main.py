@@ -17,6 +17,8 @@ import sys
 from contextlib import asynccontextmanager
 from pathlib import Path
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+
 
 # Ensure the backend directory is always on sys.path for direct uvicorn execution
 backend_root = str(Path(__file__).resolve().parent.parent)
@@ -27,6 +29,7 @@ from src.api.health import router as health_router
 from src.api.tasks import router as tasks_router
 from src.api.users import router as users_router
 from src.core.database import init_db
+from src.core.config import settings
 
 
 @asynccontextmanager
@@ -52,6 +55,15 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
     )
 
+    # Add Middleware
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=settings.cors_origins,
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+    
     # Register routers — one line per feature area.
     app.include_router(health_router)
     app.include_router(users_router)

@@ -10,8 +10,13 @@ WHY THIS FILE EXISTS:
     5. `persisted_user`: Convenience fixture providing a single persisted User document.
 """
 
+import os
 from collections.abc import AsyncGenerator
 from typing import Any
+
+# Ensure test suite runs in isolated test environment (no demo seeding)
+os.environ["APP_ENV"] = "test"
+os.environ["DATABASE_URL"] = "memory"
 
 import mongomock.database
 import mongomock_motor
@@ -25,11 +30,14 @@ from src.models.task import Task
 from src.models.user import User
 
 # -----------------------------------------------------------------------------
-# Upstream Compatibility Shim (ISSUE-DEP-03):
+# Upstream Compatibility Shim [ISSUE-DEP-03]:
+# NOTE: This is a temporary monkeypatch for an upstream library incompatibility,
+# tracked in docs/PENDING_ISSUES_AND_QUESTIONS.md [ISSUE-DEP-03].
 # Beanie 1.25+ passes `authorizedCollections=True` and `nameOnly=True` to
 # `list_collection_names()`. mongomock has not updated its signature to accept
 # these server-hint kwargs, causing a TypeError during `init_beanie()`.
-# We shim mongomock's Database.list_collection_names to strip them safely.
+# TODO: This needs to be further addressed — centralize into a single utility
+# or remove once upstream mongomock/mongomock-motor resolves keyword handling.
 # -----------------------------------------------------------------------------
 _orig_list_collection_names = mongomock.database.Database.list_collection_names
 

@@ -63,6 +63,31 @@ Per user decision `[Q-SAMPLE-REORG-01]`, the development plan is reorganized to 
   3. Authorized ML bulk data export and analytics.
   4. Multi-platform expansion and AWS cloud deployment.
 
+### 2.0.1 Codebase & Architecture Audit Review Milestone (`docs/REPORT_2026-11-14_1428.md`)
+
+An extensive architectural and codebase audit report was authored on 2026-11-14 (`docs/REPORT_2026-11-14_1428.md`) evaluating the repository baseline, test fixtures, configuration, dependencies, and API surface across tickets `[SMP-EP0-TK01]` through `[SMP-EP1-TK05]`.
+
+As part of the development plan, **the entire audit report must be read through and its points systematically addressed as a dedicated cleanup milestone** alongside/in conjunction with Epoch 2 synchronization work:
+
+1. **High-Severity & Frontend Blockers:**
+   - `[AUDIT-APP-02]`: Add CORS middleware (`CORSMiddleware`) before Flutter Web requests fail.
+   - `[AUDIT-CFG-01]`: Restrict demo mode defaults to avoid unintended in-memory execution and seed password exposure.
+   - `[AUDIT-DB-01]`: Remove top-level `mongomock` import from runtime `src/core/database.py` (preventing production import crash).
+   - `[AUDIT-DEP-01]`: Correct `pyproject.toml` package discovery and missing README reference.
+2. **Atomic Testing & Fixture Refactoring:**
+   - `[AUDIT-TEST-01]`: Refactor API integration tests (`tests/api/test_users.py`, `tests/api/test_tasks.py`) to consume persisted fixtures rather than setting up state via inline `client.post` requests (eliminating operation bundling).
+   - `[AUDIT-TEST-02]`: Correct fixture layering violations in `tests/conftest.py` so Layer 1 fixtures remain pure data without database side-effects.
+   - `[AUDIT-TEST-03]`: Disaggregate multi-contract bundled tests into single-responsibility atomic tests.
+   - `[AUDIT-TEST-04]`: Validate demo mode through real ASGI lifespan handling rather than manual setup.
+3. **API Reliability & Error Handling:**
+   - `[AUDIT-API-01]` & `[AUDIT-API-02]`: Eliminate duplicated get-or-404 code and replace overly broad `except Exception` blocks with targeted ObjectId validation.
+   - `[AUDIT-API-03]`: Safely handle concurrent `DuplicateKeyError` exceptions.
+   - `[AUDIT-API-04]`: Establish and test an explicit policy for orphaned tasks when a user is deleted.
+4. **Tooling, Hygiene & Documentation:**
+   - `[AUDIT-DB-02]`: Consolidate the duplicated `mongomock` compatibility shim into a single shared utility.
+   - `[AUDIT-DEP-02]`: Align package dependencies (`email-validator`, remove unused `passlib`).
+   - `[AUDIT-REPO-01]` & `[AUDIT-DOC-01]`: Commit untracked test files (`test_demo_mode.py`), update ticket status markers, and address open questions `[Q-AUDIT-01]` through `[Q-AUDIT-05]`.
+
 ---
 
 ### 2.1 Backend TDD (Python & FastAPI)

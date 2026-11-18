@@ -48,15 +48,22 @@ This document tracks unresolved technical issues, environmental friction points,
 
 ### [ISSUE-DEP-03] `mongomock` `Database.list_collection_names()` Unexpected Keyword Argument `authorizedCollections`
 
-- **Status:** Resolved / Shimmed in `tests/conftest.py`
-- **Affected Files:** `sample_flutter_app/backend/tests/conftest.py`
-- **Symptom:** During `init_beanie()`, Pytest raises:
+- **Status:** Temporarily Shimmed / Requires Permanent Resolution
+- **Affected Files:**
+  - `sample_flutter_app/backend/tests/conftest.py`
+  - `sample_flutter_app/backend/src/core/database.py`
+- **Symptom:** During `init_beanie()`, Beanie calls `list_collection_names(authorizedCollections=True, nameOnly=True)` and raises:
   `TypeError: Database.list_collection_names() got an unexpected keyword argument 'authorizedCollections'`
 - **Technical Context:**
   - Beanie 1.25+ queries collection caches by calling `self.database.list_collection_names(authorizedCollections=True, nameOnly=True)`.
-  - PyMongo supports these keyword arguments, but `mongomock`'s signature only accepts `(session, filter, comment)`.
-- **Solution Applied:**
-  - Added a compatibility shim in `tests/conftest.py` intercepting `mongomock.database.Database.list_collection_names` to strip `authorizedCollections` and `nameOnly` before forwarding to mongomock's native implementation.
+  - PyMongo supports these keyword arguments, but `mongomock`'s signature only accepts `(session, filter, comment)` and lacks `**kwargs`.
+- **Current Workaround (Active Shim):**
+  - Monkeypatch `mongomock.database.Database.list_collection_names` to pop `authorizedCollections` and `nameOnly` before delegating to mongomock's native method.
+- **Action Items & Long-Term Resolution Required:**
+  1. **Eliminate Shim Duplication (DRY):** The shim is currently duplicated in `tests/conftest.py` and `src/core/database.py`. If maintained, centralize it into a dedicated test/mock utility module.
+  2. **Track Upstream Issue/PR:** Monitor `mongomock` and `mongomock-motor` for a release that accepts `**kwargs` or implements `authorizedCollections` natively. Once released, remove monkeypatches.
+  3. **Runtime Architecture Risk:** Monkeypatching third-party library classes in application code (`src/core/database.py`) is fragile. Evaluate whether `src/core/database.py` should only support real MongoDB/DocumentDB connections, leaving `mongomock-motor` strictly to testing harnesses and isolated demo runners.
+  4. **Integration Testing Alternative:** In Epoch 7, evaluate running integration and demo workloads against ephemeral Docker containers (e.g. `mongo:7` via Docker Compose or `testcontainers-python`), which eliminates driver emulation differences entirely.
 
 ---
 
